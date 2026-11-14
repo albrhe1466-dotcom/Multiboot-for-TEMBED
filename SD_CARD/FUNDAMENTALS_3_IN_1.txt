@@ -1,0 +1,30 @@
+======================================================================
+   LILYGO T-EMBED CC1101 PLUS — CLEAN DUAL-BOOT FIRMWARE SYSTEM
+======================================================================
+
+1. BRUCE FIRMWARE (Slot ota_0 @ 0x020000) [DEFAULT BOOT]
+   - Target: LilyGO T-Embed CC1101 Plus
+   - GitHub: https://github.com/brucedevices/firmware
+   - Features: Wi-Fi, BLE, Sub-GHz RF (CC1101), IR, NFC, BadUSB, JS Scripts
+   - Menu Icon: Custom Zhilly Eyes logo to switch to Zhilly AI
+
+2. ZHILLY AI v2.0.4 (Slot ota_2 @ 0x880000)
+   - Founder / Developer: siberbaba (sacriphanius / Emre Selcuk)
+   - GitLab: https://gitlab.com/sacriphanius/Zhilly
+   - AI Cloud Console: https://xiaozhi.me
+   - Languages: English (en-US), Arabic (ar-SA), Turkish (tr-TR)
+   - Features: Real-time Voice AI, Sub-GHz Replay, Dynamic BadUSB, Recon
+   - Controls:
+     * Knob Rotate: Adjust Screen Brightness (10% - 100%)
+     * Side Button (GPIO 6): Switch back to Bruce Firmware
+     * Center Knob Button (GPIO 0): Voice Chat / Confirm selection
+
+======================================================================
+SD CARD DIRECTORY STRUCTURE (FAT32):
+  /firmware/bruce.bin     (Bruce Firmware with Zhilly Eyes logo)
+  /firmware/zhilly.bin    (Zhilly AI v2.0.4 Firmware)
+  /zhilly/config.json     (Zhilly AI Configuration v2.0.4)
+  /bruce/bruce.conf       (Bruce Configuration)
+  /bruce.conf             (Bruce Configuration Root)
+  /badusb/                (BadUSB Payload scripts)
+======================================================================

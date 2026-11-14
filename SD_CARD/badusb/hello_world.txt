@@ -1,0 +1,10 @@
+REM Simple BadUSB Hello World for LilyGO T-Embed
+DELAY 1000
+GUI r
+DELAY 500
+STRING notepad.exe
+ENTER
+DELAY 1000
+STRING Hello Abdullah! 3-in-1 Multi-Boot Firmware is ready!
+ENTER
+

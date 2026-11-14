@@ -1,0 +1,20 @@
+# ===========================================================================
+# Partition Table: Triple Resident Flash (Instant Switching)
+# Device: LilyGO T-Embed CC1101 Plus (ESP32-S3, 16MB Flash)
+# ===========================================================================
+# In this scheme:
+# - ota_0 (4.6 MB): Flipper Zero ESP32 Port (Permanent resident)
+# - ota_1 (4.6 MB): Bruce Firmware (Permanent resident)
+# - ota_2 (4.6 MB): Zhilly AI Firmware (Permanent resident)
+# - Switching between them is INSTANT (<0.5 seconds), no SD write required!
+# - SD card stores the assets, scripts, logs, databases for all 3 firmwares.
+# ===========================================================================
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+ota_0,    app,  ota_0,   0x10000,  0x4A0000,
+ota_1,    app,  ota_1,   0x4B0000, 0x4A0000,
+ota_2,    app,  ota_2,   0x950000, 0x4A0000,
+otadata,  data, ota,     0xDF0000, 0x2000,
+coredump, data, coredump,0xDF2000, 0x20000,
+

@@ -1,0 +1,18 @@
+# ===========================================================================
+# Partition Table: Dynamic SD OTA (Recommended for Flipper Zero Port)
+# Device: LilyGO T-Embed CC1101 Plus (ESP32-S3, 16MB Flash)
+# ===========================================================================
+# In this scheme:
+# - ota_0 (6.08 MB): Flipper Zero ESP32 Port (Permanent Main OS, never erased)
+# - ota_1 (6.08 MB): Dynamic OTA slot for Bruce or Zhilly (loaded from SD card)
+# - otadata: Stores current boot partition
+# - Revert-on-Power-Off ensures device boots back to Flipper Zero on cold boot
+# ===========================================================================
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+ota_0,    app,  ota_0,   0x10000,  0x5F0000,
+ota_1,    app,  ota_1,   0x600000, 0x5F0000,
+otadata,  data, ota,     0xBF0000, 0x2000,
+coredump, data, coredump,0xBF2000, 0x20000,
+

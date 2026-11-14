@@ -1,0 +1,51 @@
+{
+  "device": "lilygo_t_embed_cc1101_plus",
+  "version": "2.0.5",
+  "founders": {
+    "zhilly_ai": "siberbaba (sacriphanius)",
+    "bruce_firmware": "BruceDevices (T-Embed CC1101 Plus)"
+  },
+  "repositories": {
+    "zhilly_gitlab": "https://gitlab.com/sacriphanius/Zhilly",
+    "zhilly_github": "https://github.com/siberbaba/siberbaba",
+    "zhilly_topic": "https://github.com/topics/zhilly-firmware",
+    "bruce_firmware": "https://github.com/brucedevices/firmware"
+  },
+  "ai": {
+    "console": "https://xiaozhi.me",
+    "language": "en-US",
+    "supported_languages": [
+      "en-US",
+      "tr-TR",
+      "ar-SA"
+    ],
+    "replace_chinese_with_arabic_and_turkish": true,
+    "voice_activation": true,
+    "system_prompt": "You are Zhilly AI developed by siberbaba. You fluently speak English, Turkish, and Arabic. Never say you only understand Chinese. / Sen siberbaba tarafından geliştirilen Zhilly AI asistansın; Türkçe, Arapça ve İngilizce konuşursun. / أنت مساعد ذكي متعدد اللغات تتحدث الإنجليزية والتركية والعربية."
+  },
+  "timezone": {
+    "name": "Asia/Riyadh",
+    "tz_posix": "AST-3",
+    "utc_offset_hours": 3
+  },
+  "subghz": {
+    "default_freq": 433920000,
+    "module": "cc1101"
+  },
+  "display": {
+    "brightness": 75,
+    "rotation": 0,
+    "swap_xy": true,
+    "mirror_x": true,
+    "mirror_y": false,
+    "theme": "dark_cyber"
+  },
+  "led": {
+    "brightness": 32,
+    "low_brightness": 4,
+    "r": 0,
+    "g": 0,
+    "b": 255,
+    "effect": 0
+  }
+}

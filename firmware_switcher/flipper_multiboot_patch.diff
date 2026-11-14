@@ -1,0 +1,52 @@
+diff --git a/applications/services/desktop/desktop_i.h b/applications/services/desktop/desktop_i.h
+--- a/applications/services/desktop/desktop_i.h
++++ b/applications/services/desktop/desktop_i.h
+@@ -40,6 +40,8 @@ typedef enum {
+     DesktopMenuWiFi,
+     DesktopMenuUsbStorage,
+     DesktopMenuQFlipper,
++    DesktopMenuSwitchBruce,     // Switch to Bruce Firmware (from SD)
++    DesktopMenuSwitchZhilly,    // Switch to ZHILLY AI (from SD)
+     DesktopMenuItemCount,
+ } DesktopMenuItemId;
+ 
+diff --git a/applications/services/desktop/desktop.c b/applications/services/desktop/desktop.c
+--- a/applications/services/desktop/desktop.c
++++ b/applications/services/desktop/desktop.c
+@@ -12,6 +12,7 @@
+ #include <furi_hal.h>
+ #include <gui/gui.h>
++#include "firmware_switch.h"
+ 
+ static void desktop_menu_callback(DesktopMenuItemId index, void* context) {
+     Desktop* desktop = context;
+@@ -45,6 +46,16 @@ static void desktop_menu_callback(DesktopMenuItemId index, void* context) {
+         case DesktopMenuQFlipper:
+             desktop_toggle_qflipper(desktop);
+             break;
++        case DesktopMenuSwitchBruce:
++            FURI_LOG_I("DESKTOP", "Switching to Bruce Firmware...");
++            // Write from /sdcard/firmware/bruce.bin to ota_1 & reboot
++            firmware_switch_to(TARGET_FIRMWARE_BRUCE);
++            break;
++        case DesktopMenuSwitchZhilly:
++            FURI_LOG_I("DESKTOP", "Switching to ZHILLY AI...");
++            // Write from /sdcard/firmware/zhilly.bin to ota_1 & reboot
++            firmware_switch_to(TARGET_FIRMWARE_ZHILLY);
++            break;
+         default:
+             break;
+     }
+diff --git a/applications/services/desktop/views/desktop_view_locked.c b/applications/services/desktop/views/desktop_view_locked.c
+--- a/applications/services/desktop/views/desktop_view_locked.c
++++ b/applications/services/desktop/views/desktop_view_locked.c
+@@ -25,6 +25,8 @@ static const char* const menu_item_labels[] = {
+     [DesktopMenuWiFi] = "Wi-Fi (WebUI)",
+     [DesktopMenuUsbStorage] = "USB-Storage",
+     [DesktopMenuQFlipper] = "Enable qFlipper",
++    [DesktopMenuSwitchBruce] = "Switch to Bruce",
++    [DesktopMenuSwitchZhilly] = "Switch to ZHILLY AI",
+ };
+ 
+ static void desktop_view_locked_draw(Canvas* canvas, void* model) {
+

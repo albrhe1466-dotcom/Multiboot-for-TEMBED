@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#111318">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
+<title>MultiBoot for LilyGO T-Embed — Web Flasher v1.1.1.3</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  const origFetch = window.fetch ? window.fetch.bind(window) : null;
+  if (!origFetch) return;
+  window.fetch = async function(input, init) {
+    try {
+      const rawUrl = typeof input === "string" ? input : (input && input.url ? input.url : String(input));
+      const cleanUrl = rawUrl.split("?")[0].split("#")[0].replace(/\\/g, "/");
+      if (cleanUrl.endsWith("/blank_4k.bin") || cleanUrl === "bin/blank_4k.bin" || cleanUrl.endsWith("blank_4k.bin")) {
+        const blankBuf = new Uint8Array(4096);
+        blankBuf.fill(0xFF);
+        return new Response(blankBuf, {
+          status: 200,
+          statusText: "OK",
+          headers: { "Content-Type": "application/octet-stream", "Content-Length": "4096" }
+        });
+      }
+      const baseName = cleanUrl.split("/").pop();
+      if (baseName && baseName.startsWith("manifest_") && baseName.endsWith(".json") && window.MANIFESTS_DATA && window.MANIFESTS_DATA[baseName]) {
+        try {
+          const resp = await origFetch(input, init);
+          if (resp && resp.ok) return resp;
+        } catch (e) {}
+        const body = JSON.stringify(window.MANIFESTS_DATA[baseName], null, 2);
+        return new Response(body, {
+          status: 200,
+          statusText: "OK",
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    } catch (e) {}
+    return origFetch(input, init);
+  };
+})();
+</script>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>window.JSZip || document.write('<script src="js/jszip.min.js"><\/script>');</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+/* ===================== ROOT ===================== */
+:root{
+  --bg:#111318;--text:#f5f5f7;--muted:#aeb2ba;--muted2:#777c86;
+  --line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.16);
+  --cyan:#9de7ff;--warning:#ffd36a;--danger:#ff7272;--ok:#7be3b0;
+  --radius:22px;--shadow:0 25px 70px rgba(0,0,0,.42);
+  --transition:280ms cubic-bezier(.2,.8,.2,1);
+  --ui:.40;--dir:-1;
+}
+html[dir="ltr"]{--dir:1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{min-height:100%;background:var(--bg);scroll-behavior:smooth}
+body{margin:0;min-height:100vh;font-family:Georgia,"Cairo","Times New Roman",serif;color:var(--text);
+  background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.035),transparent 35%),#111318;overflow-x:hidden}
+button,input,select{font-family:inherit}
+button{cursor:pointer}
+::selection{background:rgba(157,231,255,.22)}
+code{background:rgba(255,255,255,.09);padding:1px 6px;border-radius:6px;font-size:.92em;direction:ltr;unicode-bidi:embed}
+
+/* ===================== BACKGROUND ===================== */
+#background{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.055),transparent 18%),
+  radial-gradient(circle at 15% 20%,rgba(80,180,220,.035),transparent 25%),
+  radial-gradient(circle at 85% 80%,rgba(150,100,220,.025),transparent 30%),#111318}
+#galaxyCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;opacity:.8;transition:opacity .8s ease}
+.grid{position:absolute;inset:-50%;opacity:.11;
+  background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);
+  background-size:55px 55px;transform:perspective(700px) rotateX(60deg) translateY(20%);animation:gridMove 18s linear infinite}
+@keyframes gridMove{to{background-position:0 110px}}
+
+/* ---- atom ---- */
+.atom-system{position:absolute;width:min(760px,92vw);height:min(760px,92vw);left:50%;top:50%;
+  transform:translate(calc(-50% + var(--mouse-x,0px)),calc(-50% + var(--mouse-y,0px)));
+  transition:transform 900ms cubic-bezier(.2,.8,.2,1);opacity:.43;animation:atomFloat 8s ease-in-out infinite}
+@keyframes atomFloat{0%,100%{margin-top:8px;scale:.985}50%{margin-top:-10px;scale:1.025}}
+.atom-glow{position:absolute;left:50%;top:50%;width:280px;height:280px;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.22),rgba(120,220,255,.07) 32%,transparent 70%);filter:blur(22px);animation:coreGlow 2.6s ease-in-out infinite}
+@keyframes coreGlow{0%,100%{opacity:.45;scale:.82}50%{opacity:1;scale:1.2}}
+.atom-core{position:absolute;left:50%;top:50%;width:92px;height:92px;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle at 32% 25%,#fff,#cbd0d8 25%,#6b717c 57%,#272a31 100%);border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 0 25px rgba(255,255,255,.35),0 0 90px rgba(130,220,255,.13),inset 0 0 28px rgba(0,0,0,.55);animation:nucleusPulse 2s ease-in-out infinite;z-index:20}
+@keyframes nucleusPulse{0%,100%{box-shadow:0 0 25px rgba(255,255,255,.25),0 0 70px rgba(130,220,255,.08),inset 0 0 28px rgba(0,0,0,.55)}
+  50%{box-shadow:0 0 45px rgba(255,255,255,.5),0 0 120px rgba(130,220,255,.17),inset 0 0 25px rgba(0,0,0,.45)}}
+.atom-ring{position:absolute;left:50%;top:50%;width:100%;height:34%;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 0 20px rgba(255,255,255,.025),inset 0 0 15px rgba(255,255,255,.02);transform-origin:center;will-change:transform;
+  transform:translate(-50%,-50%) rotate(var(--a)) scaleY(.55);animation:orbit var(--t) linear infinite}
+@keyframes orbit{to{transform:translate(-50%,-50%) rotate(calc(var(--a) + var(--d) * 360deg)) scaleY(.55)}}
+.atom-orbit{position:absolute;inset:0}
+.main-emoji{position:absolute;left:50%;top:-31px;width:62px;height:62px;margin-left:-31px;display:flex;justify-content:center;align-items:center;
+  border-radius:50%;background:rgba(25,28,34,.82);border:1px solid rgba(255,255,255,.21);box-shadow:0 10px 35px rgba(0,0,0,.55),0 0 22px rgba(255,255,255,.08);
+  font-size:31px;transform:scaleY(1.82);animation:emojiPulse 2.2s ease-in-out infinite}
+@keyframes emojiPulse{0%,100%{margin-top:0;filter:brightness(.8)}50%{margin-top:-10px;filter:brightness(1.35)}}
+
+#atomEmitter{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:1}
+#atomEmitter .emit{position:absolute;left:0;top:0;font-size:clamp(20px,2.6vw,38px);opacity:0;will-change:transform,opacity,filter;
+  animation:emitFly var(--dur,11s) cubic-bezier(.2,.6,.3,1) var(--delay,0s) infinite}
+#atomEmitter .emit::after{content:"";position:absolute;left:50%;top:50%;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.85) 0 1px,transparent 1.6px) 0 0/11px 11px,radial-gradient(circle,rgba(170,220,255,.75) 0 1px,transparent 1.6px) 5px 6px/13px 13px;
+  -webkit-mask-image:radial-gradient(circle,#000 25%,transparent 70%);mask-image:radial-gradient(circle,#000 25%,transparent 70%);opacity:0;
+  animation:emitDust var(--dur,11s) linear var(--delay,0s) infinite}
+@keyframes emitFly{
+  0%{opacity:0;transform:translate(calc(var(--dx)*.22),calc(var(--dy)*.22)) scale(.5) rotate(0);filter:blur(0)}
+  6%{opacity:.9}16%{opacity:.8}27%{opacity:.7}38%{opacity:.6}49%{opacity:.5}60%{opacity:.4}
+  72%{opacity:.3;transform:translate(calc(var(--dx)*.8),calc(var(--dy)*.8 - 7vmin)) scale(1) rotate(var(--rot))}
+  84%{opacity:.2}93%{opacity:.1;filter:blur(1.5px)}
+  100%{opacity:0;transform:translate(calc(var(--dx)*1.05),calc(var(--dy)*1.05 - 14vmin)) scale(1.4) rotate(calc(var(--rot)*1.4));filter:blur(7px)}}
+@keyframes emitDust{0%,86%{opacity:0;transform:scale(.4)}93%{opacity:.55;transform:scale(1)}100%{opacity:0;transform:scale(2.6) translateY(-18px)}}
+@keyframes atomReveal{from{opacity:0;filter:blur(22px) brightness(2.4)}to{filter:none}}
+body.look-atom .atom-system{animation:atomFloat 8s ease-in-out infinite,atomReveal 1.6s cubic-bezier(.16,1,.3,1)}
+body.look-milky .atom-system,body.look-milky #atomEmitter{display:none}
+body.look-atom #galaxyCanvas{display:none}
+body.look-milky #galaxyCanvas{animation:galaxyReveal 1.4s ease-out}
+@keyframes galaxyReveal{from{opacity:0}}
+body.look-milky .card{-webkit-backdrop-filter:none;backdrop-filter:none}
+
+#particles{position:absolute;inset:0;overflow:hidden}
+.particle{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.5);box-shadow:0 0 9px rgba(255,255,255,.4);animation:particleFloat var(--speed) linear infinite}
+@keyframes particleFloat{from{transform:translate3d(0,110vh,0) scale(.5);opacity:0}20%{opacity:.7}80%{opacity:.35}to{transform:translate3d(var(--drift),-15vh,0) scale(1.5);opacity:0}}
+.shooting-stars{position:absolute;inset:0}
+.shooting-stars i{position:absolute;width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);transform:rotate(-35deg);opacity:0;animation:shooting 7s linear infinite}
+.shooting-stars i:nth-child(1){left:5%;top:22%;animation-delay:1s}
+.shooting-stars i:nth-child(2){left:70%;top:15%;animation-delay:4s}
+.shooting-stars i:nth-child(3){left:85%;top:60%;animation-delay:7s}
+.shooting-stars i:nth-child(4){left:20%;top:78%;animation-delay:10s}
+.shooting-stars i:nth-child(5){left:55%;top:88%;animation-delay:13s}
+@keyframes shooting{0%,78%{opacity:0;transform:translate(-100px,-100px) rotate(-35deg)}82%{opacity:.8}90%{opacity:0;transform:translate(600px,600px) rotate(-35deg)}100%{opacity:0}}
+body.look-milky.gfx-medium .shooting-stars{display:none}
+body.look-milky.gfx-medium #particles{opacity:.5}
+body.look-milky.gfx-low .shooting-stars,body.look-milky.gfx-low #particles{display:none}
+#warpCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+
+/* ===================== APP ===================== */
+#app{position:relative;z-index:2;min-height:100vh;padding:66px 18px 50px}
+.app-shell{width:min(1000px,100%);margin:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:23px;animation:iconFloat 3s ease-in-out infinite;
+  background:rgba(255,255,255,calc(var(--ui)*.12))}
+@keyframes iconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px) rotate(2deg)}}
+.brand-text h1{margin:0;font-size:18px;font-weight:900;letter-spacing:-.5px}
+.brand-text p{margin:1px 0 0;color:var(--muted2);font-size:11px;font-weight:700;direction:ltr;text-align:start}
+.version{padding:8px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:800;background:rgba(44,48,56,calc(var(--ui)*.85))}
+
+#banner{margin-bottom:18px;padding:12px 16px;border-radius:14px;font-size:12px;line-height:1.9;display:flex;gap:12px;align-items:flex-start;justify-content:space-between;
+  border:1px solid var(--line);background:rgba(44,48,56,calc(var(--ui)*.85))}
+#banner.warn{border-color:rgba(255,211,106,.4);color:#ecd9a0}
+#banner.ok{border-color:rgba(123,227,176,.35);color:var(--ok);justify-content:center;align-items:center;font-weight:800}
+#banner button{background:none;border:0;color:inherit;font-size:20px;line-height:1}
+
+/* stepper */
+.stepper{display:flex;justify-content:space-between;margin:0 0 20px;position:relative}
+.stepper[hidden]{display:none}
+.stepper::before{content:"";position:absolute;inset-inline:12%;top:19px;height:2px;background:var(--line)}
+.dot{flex:1;text-align:center;position:relative;background:none;border:0;color:var(--muted2);font-size:12px;font-weight:800;cursor:default}
+.dot i{display:grid;place-items:center;width:38px;height:38px;margin:0 auto 6px;border-radius:50%;background:#171a20;border:2px solid var(--line2);font-style:normal;font-weight:900;transition:.3s}
+.dot.done{cursor:pointer;color:var(--muted)}.dot.done i{border-color:rgba(190,230,245,.6);color:#e8ebee}
+.dot.now{color:#fff}.dot.now i{background:linear-gradient(145deg,#e8ebef,#9ca2aa);color:#16181d;border-color:transparent;box-shadow:0 0 22px rgba(170,225,255,.4)}
+
+/* pages */
+.page{display:none;opacity:0}
+.page.active{display:block;animation:pageEnter 550ms cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes pageEnter{to{opacity:1}}
+
+/* card */
+.card{position:relative;padding:clamp(22px,4vw,42px);background:linear-gradient(145deg,rgba(36,39,46,var(--ui)),rgba(22,24,29,var(--ui)));
+  border:1px solid rgba(255,255,255,calc(.03 + var(--ui)*.11));border-radius:var(--radius);box-shadow:0 10px 34px rgba(0,0,0,calc(var(--ui)*.32)),var(--shadow);
+  backdrop-filter:blur(22px);overflow:hidden}
+.card::before{content:"";position:absolute;left:-30%;top:-80%;width:70%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.035),transparent);transform:rotate(18deg);animation:cardShine 8s linear infinite;pointer-events:none}
+@keyframes cardShine{from{left:-80%}to{left:150%}}
+.card.flash-card{overflow:visible;-webkit-backdrop-filter:none;backdrop-filter:none}
+.card.flash-card::before{display:none}
+.hero{text-align:center}
+.hero-logo{width:100px;height:100px;margin:5px auto 22px;display:grid;place-items:center;border-radius:30px;border:1px solid rgba(255,255,255,.15);
+  background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.22),rgba(255,255,255,.04));box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 50px rgba(150,220,255,.07);font-size:48px;animation:heroLogo 3.5s ease-in-out infinite}
+@keyframes heroLogo{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-9px) rotate(3deg)}}
+.hero h2{margin:0 0 10px;font-size:clamp(25px,5vw,40px);font-weight:900;letter-spacing:-1px}
+.hero-description{max-width:700px;margin:0 auto 28px;color:var(--muted);line-height:2;font-size:clamp(13px,2vw,16px)}
+.badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
+.badge{padding:8px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;background:rgba(44,48,56,calc(var(--ui)*.85))}
+.step-title{margin:0 0 4px;font-size:28px;font-weight:900}
+.step-sub{margin:0 0 22px;color:var(--muted);font-size:13px;line-height:1.9}
+.notice{padding:13px 15px;margin-top:15px;border-radius:13px;border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.8;background:rgba(44,48,56,calc(var(--ui)*.85))}
+.notice.warning{border-color:rgba(255,211,106,.25);color:#d9c58c}
+.notice.success{border-color:rgba(170,220,240,.2);color:#b7dce8}
+
+/* buttons */
+.btn{position:relative;min-height:52px;padding:12px 22px;border-radius:15px;color:var(--text);border:1px solid rgba(255,255,255,calc(.03 + var(--ui)*.11));
+  background:linear-gradient(145deg,rgba(68,73,81,var(--ui)),rgba(41,44,50,var(--ui)));font-weight:800;font-size:14px;
+  transition:transform var(--transition),box-shadow var(--transition),background var(--transition);overflow:hidden;box-shadow:0 10px 34px rgba(0,0,0,calc(var(--ui)*.32))}
+.btn::after{content:"";position:absolute;width:10px;height:10px;border-radius:50%;left:var(--ripple-x,50%);top:var(--ripple-y,50%);background:rgba(255,255,255,.25);transform:translate(-50%,-50%) scale(0);pointer-events:none}
+.btn.rippling::after{animation:ripple 650ms ease-out}
+@keyframes ripple{to{transform:translate(-50%,-50%) scale(28);opacity:0}}
+.btn:hover{transform:translateY(-2px);box-shadow:0 14px 35px rgba(0,0,0,.28)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.primary{background:linear-gradient(145deg,rgba(232,235,239,var(--ui)),rgba(156,162,170,var(--ui)));color:#16181d}
+.btn.secondary{background:rgba(60,64,72,var(--ui))}
+body.ui-low .btn.primary{color:#fff;outline:1px solid rgba(255,255,255,.5)}
+.button-row{display:flex;gap:12px;flex-wrap:wrap}
+.button-row.center{justify-content:center}
+.nav{display:flex;justify-content:space-between;gap:12px;margin-top:26px;flex-wrap:wrap}
+
+/* hardware */
+.hw{display:flex;gap:16px;align-items:flex-start;padding:20px;border-radius:18px;border:1px solid rgba(190,230,245,.4);
+  background:linear-gradient(145deg,rgba(88,104,116,var(--ui)),rgba(60,66,76,var(--ui)));box-shadow:0 0 0 3px rgba(157,231,255,.045)}
+.hw-ic{font-size:36px;animation:iconFloat 3s ease-in-out infinite}
+.hw-body{flex:1;min-width:0}
+.hw h3{margin:0;font-size:19px;font-weight:900}
+.hw small{color:var(--muted)}
+.lock{padding:4px 12px;border-radius:999px;border:1px solid rgba(255,211,106,.4);color:var(--warning);font-size:10px;font-weight:900;white-space:nowrap}
+.specs{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:7px;font-size:12px;direction:ltr;text-align:left;color:#d8dbe0}
+.specs li::before{content:"▸ ";color:var(--cyan)}
+
+/* firmware options */
+.opt{position:relative;display:block;margin-bottom:12px;padding:15px 16px;padding-inline-start:52px;border:1px solid rgba(255,255,255,.09);border-radius:15px;cursor:pointer;
+  background:rgba(44,48,56,calc(var(--ui)*.85));transition:transform .25s cubic-bezier(.2,.9,.3,1.4),background .25s,border-color .25s}
+.opt:hover{transform:translateX(calc(var(--dir)*-6px));border-color:rgba(255,255,255,.18)}
+.opt.sel{border-color:rgba(190,230,245,.45);background:linear-gradient(145deg,rgba(88,104,116,var(--ui)),rgba(60,66,76,var(--ui)));box-shadow:0 0 0 3px rgba(157,231,255,.045)}
+body.ui-low .opt.sel{outline:1px solid rgba(255,255,255,.55)}
+.opt input{position:absolute;inset-inline-start:16px;top:18px;width:20px;height:20px;accent-color:#dfe3e8;margin:0}
+.opt b{font-size:15px;font-weight:900;direction:ltr;unicode-bidi:plaintext}
+.opt .d{display:block;margin-top:3px;color:var(--muted);font-size:12px;line-height:1.8}
+.opt em{display:block;margin-top:6px;font-style:normal;font-size:10px;color:var(--muted2);direction:ltr;text-align:start;word-break:break-word}
+.tag{display:inline-block;margin-inline-start:8px;padding:2px 9px;border-radius:999px;background:rgba(123,227,176,.18);color:var(--ok);font-size:10px;font-weight:900}
+
+/* flash */
+.sel-banner{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,211,106,.3);background:rgba(255,211,106,calc(var(--ui)*.1));margin-bottom:22px;font-size:12px}
+.sel-banner b{color:var(--warning);direction:ltr;unicode-bidi:plaintext}
+.flashbox{text-align:center;margin:22px 0 26px}
+.official-flash-btn{display:inline-flex;align-items:center;gap:12px;padding:16px 36px;font-size:18px;font-weight:900;border:1px solid rgba(255,255,255,.25);border-radius:16px;color:#16181d;
+  background:linear-gradient(145deg,#e8ebef,#9ca2aa);box-shadow:0 12px 40px rgba(170,225,255,.25);transition:transform .25s,box-shadow .25s;animation:primaryGlow 3.2s ease-in-out infinite}
+.official-flash-btn:hover{transform:translateY(-3px)}
+@keyframes primaryGlow{0%,100%{box-shadow:0 12px 35px rgba(255,255,255,.08)}50%{box-shadow:0 12px 46px rgba(170,225,255,.34)}}
+.sub-h{margin:0 0 10px;font-size:15px;font-weight:900}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
+th,td{padding:11px 13px;text-align:start;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-size:10px;font-weight:900;background:rgba(255,255,255,calc(var(--ui)*.1))}
+tr:last-child td{border:0}
+td.hex,td.f,td.dec{direction:ltr;text-align:left;font-family:Consolas,monospace}
+td.hex{color:var(--warning);font-weight:700}td.f{color:var(--cyan)}
+
+/* tools */
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.tool{padding:20px;border-radius:18px;border:1px solid var(--line);background:rgba(44,48,56,calc(var(--ui)*.85))}
+.tool h3{margin:0 0 6px;font-size:17px;font-weight:900}
+.tool p{margin:0 0 16px;color:var(--muted);font-size:12px;line-height:1.9}
+
+/* modal */
+#modal{position:fixed;inset:0;z-index:200;background:rgba(3,6,12,.78);display:none;place-items:center;padding:16px}
+#modal.show{display:grid}
+.mbox{width:min(780px,100%);padding:20px;border-radius:20px;border:1px solid var(--line2);background:rgba(24,27,33,.98);box-shadow:var(--shadow)}
+.mbox h3{margin:0 0 4px;font-size:18px}
+#mstat{font-size:12px;color:var(--muted);font-weight:700}
+#log{height:340px;overflow:auto;margin:14px 0;padding:12px;border-radius:12px;border:1px solid var(--line);background:#07090c;
+  font:12px/1.5 Consolas,monospace;color:#9fe6c3;white-space:pre-wrap;word-break:break-all;direction:ltr;text-align:left}
+
+.footer{margin-top:20px;text-align:center;color:#5e636c;font-size:10px;font-weight:700}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:22px;z-index:1000;max-width:min(440px,calc(100vw - 30px));padding:13px 17px;border-radius:14px;
+  background:rgba(28,31,37,calc(.45 + var(--ui)*.5));border:1px solid rgba(255,255,255,.13);box-shadow:0 18px 55px rgba(0,0,0,.4);backdrop-filter:blur(18px);
+  color:#fff;font-size:11px;font-weight:700;opacity:0;transform:translate(-50%,20px) scale(.95);pointer-events:none;transition:opacity 250ms,transform 250ms}
+#toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+
+/* settings & news */
+#settingsButton,#newsButton{position:fixed;right:12px;z-index:90;width:44px;height:44px;display:grid;place-items:center;border-radius:14px;border:1px solid var(--line2);
+  background:rgba(28,31,38,var(--ui));color:var(--text);font-size:21px;line-height:1;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:transform .5s cubic-bezier(.2,1.2,.3,1),background .25s}
+#settingsButton{top:12px}
+#newsButton{top:64px}
+#settingsButton:hover{transform:rotate(35deg);background:rgba(44,48,58,calc(.05 + var(--ui)))}
+#newsButton:hover{transform:scale(1.08);background:rgba(44,48,58,calc(.05 + var(--ui)))}
+.news-badge{position:absolute;top:-5px;right:-5px;width:19px;height:19px;border-radius:999px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#ff4d5a,#d92b3a);color:#fff;border:2px solid #111318;font-size:12px;font-weight:900;line-height:1;
+  box-shadow:0 0 12px rgba(255,77,90,.85);animation:newsPulse 1.6s ease-in-out infinite;pointer-events:none}
+.news-badge[hidden]{display:none!important}
+@keyframes newsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+#settingsPanel,#newsPanel{position:fixed;top:12px;right:64px;z-index:95;width:min(360px,calc(100vw - 80px));max-height:calc(100vh - 24px);overflow-y:auto;padding:16px;border-radius:18px;
+  border:1px solid var(--line2);background:rgba(24,27,33,calc(.45 + var(--ui)*.5));backdrop-filter:blur(22px);box-shadow:var(--shadow)}
+#newsPanel{top:64px}
+#settingsPanel[hidden],#newsPanel[hidden]{display:none}
+#settingsPanel:not([hidden]),#newsPanel:not([hidden]){animation:panelIn .45s cubic-bezier(.2,1.1,.3,1.1);transform-origin:top right}
+.news-list{margin:8px 0 0;padding-inline-start:18px;display:grid;gap:8px;color:var(--muted);font-size:12px;line-height:1.7}
+.news-list b{color:var(--text)}
+.news-ver{display:inline-block;padding:2px 9px;border-radius:999px;background:rgba(157,231,255,.16);color:var(--cyan);font-size:11px;font-weight:900;margin-bottom:8px}
+@keyframes panelIn{from{opacity:0;transform:translateY(-14px) scale(.9)}to{opacity:1;transform:none}}
+.sp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:16px}
+.sp-x{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:14px}
+.sp-row{margin-bottom:14px}
+.sp-label{margin-bottom:7px;color:var(--muted);font-size:12px;font-weight:800}
+.sp-seg{display:flex;gap:6px}
+.sp-seg button{flex:1;padding:9px 6px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,calc(var(--ui)*.1));color:var(--text);font-size:13px;font-weight:700;transition:background var(--transition),border-color var(--transition)}
+.sp-seg button.on{background:rgba(255,255,255,calc(.10 + var(--ui)*.25));border-color:rgba(255,255,255,.75)}
+body.ui-low .sp-seg button.on{color:#fff}
+.sp-note{margin:4px 0 0;color:var(--muted2);font-size:11px;line-height:1.7}
+.ui-range{width:100%;accent-color:#dfe3e8;height:28px;background:transparent;border:0;padding:0}
+
+/* sparks + readable text on thin glass */
+.click-spark{position:fixed;z-index:400;width:7px;height:7px;margin:-3px 0 0 -3px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,#fff,rgba(160,220,255,.9) 55%,transparent 70%);box-shadow:0 0 10px rgba(160,220,255,.9);animation:sparkOut .75s cubic-bezier(.1,.7,.2,1) forwards}
+@keyframes sparkOut{to{transform:translate(var(--sx),var(--sy)) scale(.15);opacity:0}}
+.page,.topbar,.footer,#settingsPanel,#toast{text-shadow:0 1px 8px rgba(0,0,0,calc((1 - var(--ui))*.95)),0 0 2px rgba(0,0,0,calc((1 - var(--ui))*.85))}
+body.lang-en{font-family:Georgia,"Times New Roman",serif}
+
+@media (prefers-reduced-motion:no-preference){
+  .page.active{animation:pageSlide .7s cubic-bezier(.16,1,.3,1) both}
+  .page.active.back{animation-name:pageSlideBack}
+  @keyframes pageSlide{from{opacity:0;transform:translateX(calc(var(--dir)*90px)) scale(.96);filter:blur(12px)}60%{filter:blur(0)}to{opacity:1;transform:none;filter:none}}
+  @keyframes pageSlideBack{from{opacity:0;transform:translateX(calc(var(--dir)*-90px)) scale(.96);filter:blur(12px)}60%{filter:blur(0)}to{opacity:1;transform:none;filter:none}}
+  @keyframes itemRise{from{opacity:0;transform:translateY(26px) scale(.97);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+  .page.active .card>*{animation:itemRise .7s cubic-bezier(.16,1,.3,1) backwards}
+  .page.active .card>*:nth-child(1){animation-delay:55ms}.page.active .card>*:nth-child(2){animation-delay:110ms}
+  .page.active .card>*:nth-child(3){animation-delay:165ms}.page.active .card>*:nth-child(4){animation-delay:220ms}
+  .page.active .card>*:nth-child(5){animation-delay:275ms}.page.active .card>*:nth-child(6){animation-delay:330ms}
+  .page.active .card>*:nth-child(7){animation-delay:385ms}.page.active .card>*:nth-child(8){animation-delay:440ms}
+  .btn::before{content:"";position:absolute;top:0;bottom:0;width:46%;left:-70%;transform:skewX(-22deg);pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transition:left .7s cubic-bezier(.2,.8,.2,1)}
+  .btn:hover::before{left:125%}
+  .btn:active{transform:translateY(2px) scale(.96)}
+  .btn.primary{animation:primaryGlow 3.2s ease-in-out infinite}
+  .opt.sel{animation:optionPop .5s cubic-bezier(.2,.9,.3,1.5)}
+  @keyframes optionPop{0%{transform:scale(.95)}55%{transform:scale(1.035)}100%{transform:scale(1)}}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+@media (max-width:800px){
+  #app{padding:62px 10px 35px}
+  .card{padding:20px 15px;border-radius:19px}
+  .atom-system{width:650px;height:650px;opacity:.28}
+  .hw{flex-wrap:wrap}
+  .nav .btn{flex:1}
+}
+@media (max-width:480px){
+  .brand-text h1{font-size:15px}.version{display:none}
+  .hero h2{font-size:25px}.hero-logo{width:82px;height:82px;font-size:40px}
+  .atom-system{width:550px;height:550px}
+  .main-emoji{width:50px;height:50px;margin-left:-25px;font-size:25px}
+  .dot{font-size:10px}
+}
+/* hide zhilly language selector when Option 1 (Flipper with Bruce) is active */
+body.sel-flipbruce #zhillyLangPanel {
+  display: none !important;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===================== BACKGROUND ===================== -->
+<div id="background">
+  <canvas id="galaxyCanvas"></canvas>
+  <div class="grid"></div>
+  <div id="particles"></div>
+  <div class="atom-system">
+    <div class="atom-glow"></div>
+    <div class="atom-core"></div>
+    <div class="atom-ring" style="--a:0deg;--d:1;--t:8s"><div class="atom-orbit"><span class="main-emoji">⚡</span></div></div>
+    <div class="atom-ring" style="--a:36deg;--d:-1;--t:10s"><div class="atom-orbit"><span class="main-emoji">🔌</span></div></div>
+    <div class="atom-ring" style="--a:72deg;--d:1;--t:12s"><div class="atom-orbit"><span class="main-emoji">🖥️</span></div></div>
+    <div class="atom-ring" style="--a:112deg;--d:-1;--t:9s"><div class="atom-orbit"><span class="main-emoji">📡</span></div></div>
+    <div class="atom-ring" style="--a:150deg;--d:1;--t:14s"><div class="atom-orbit"><span class="main-emoji">🌐</span></div></div>
+  </div>
+  <div class="shooting-stars"><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<main id="app">
+<div class="app-shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1 data-i="brand">MultiBoot Flasher for LilyGO T-Embed</h1>
+        <p>LilyGO T-Embed CC1101 Plus</p>
+      </div>
+    </div>
+    <div class="version">v1.1.1.3</div>
+  </header>
+
+  <div id="banner"></div>
+
+  <nav class="stepper" id="stepper" hidden></nav>
+
+  <!-- WELCOME -->
+  <section class="page active" id="pageWelcome">
+    <div class="card hero">
+      <div class="hero-logo">⚡</div>
+      <h2 data-i="heroTitle">Welcome to MultiBoot for LilyGO T-Embed</h2>
+      <p class="hero-description" data-i="heroDesc">Official Web Serial flashing for LilyGO T-Embed CC1101 Plus. 3 Dual-Boot decisions: Bruce, Flipper, and Zhilly AI v1.1.1.3.</p>
+      <div class="badges">
+        <div class="badge" data-i="b1">🔌 4 Steps</div>
+        <div class="badge">⚡ ESP Web Tools v10</div>
+        <div class="badge" data-i="b3">🌐 Chrome / Edge</div>
+        <div class="badge" data-i="b4">🔒 One Supported Board</div>
+      </div>
+      <div class="notice" data-i="heroNote">Connect board via USB-C cable before starting. Use Google Chrome or Microsoft Edge.</div>
+      <div class="button-row center" style="margin-top:22px">
+        <button class="btn primary" data-go="1" data-i="start">🚀 Start Flashing</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="page" id="pageHW">
+    <div class="card">
+      <div>
+        <h2 class="step-title" data-i="s1t">Step 1 · Target Hardware</h2>
+        <p class="step-sub" data-i="s1s">Only one board is supported, and it is already locked and verified.</p>
+      </div>
+      <div class="hw">
+        <div class="hw-ic">🔌</div>
+        <div class="hw-body">
+          <h3>LilyGO T-Embed CC1101 Plus</h3>
+          <small>LilyGO T-Embed CC1101 Plus</small>
+          <ul class="specs">
+            <li>ESP32-S3 WROOM-1 Dual-Core (16MB Quad SPI Flash, 8MB Octal PSRAM)</li>
+            <li>1.9-inch ST7789 IPS LCD (320x170) with Rotated Display Driver</li>
+            <li>CC1101 Sub-GHz Transceiver (300MHz–928MHz) &amp; CC1101 SPI bus</li>
+            <li>MAX98357A I2S Audio Amplifier &amp; PDM Microphone</li>
+          </ul>
+        </div>
+        <div class="lock" data-i="locked">🔒 Locked</div>
+      </div>
+      <div class="nav">
+        <button class="btn secondary" data-go="0" data-i="back">← Back</button>
+        <button class="btn primary" data-go="2" data-i="nextFW">Next: Firmware →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="page" id="pageFW">
+    <div class="card">
+      <div>
+        <h2 class="step-title" data-i="s2t">Step 2 · Firmware Decision (v1.1.1.3)</h2>
+        <p class="step-sub" data-i="s2s">Choose one of the 3 dual-boot decisions below. Manifest switches automatically.</p>
+      </div>
+      <div id="options">
+        <label class="opt sel" onclick="selectFW('flipbruce')">
+          <input type="radio" name="fw" value="flipbruce" checked>
+          <b>1. Bruce with Flipper (Dual-Boot) v1.1.1.3</b><span class="tag">Default</span>
+          <span class="d">1. Flipper Zero ESP32 Port (Primary Boot) + Bruce RF suite (Dual-Boot: Switch in Main Menu)</span>
+          <em>6 partitions · manifest_flipper_bruce.json</em>
+        </label>
+        <label class="opt" onclick="selectFW('bruce_zhilly')">
+          <input type="radio" name="fw" value="bruce_zhilly">
+          <b>2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.3</b>
+          <span class="d">2. Bruce RF suite + Zhilly Voice AI (Single chosen language: English, Arabic, or Turkish)</span>
+          <em>7 partitions · manifest_dualboot_en.json</em>
+        </label>
+        <label class="opt" onclick="selectFW('flipper_zhilly')">
+          <input type="radio" name="fw" value="flipper_zhilly">
+          <b>3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.3</b>
+          <span class="d">3. Flipper Zero ESP32 Port (Primary Boot) + Zhilly Voice AI (Single chosen language, switch between NFC &amp; IR)</span>
+          <em>7 partitions · manifest_flipper_ai_en.json</em>
+        </label>
+      </div>
+      <div class="nav">
+        <button class="btn secondary" data-go="1" data-i="back">← Back</button>
+        <button class="btn primary" data-go="3" data-i="nextFlash">Next: Flash →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="page" id="pageFlash">
+    <div class="card flash-card">
+      <div>
+        <h2 class="step-title" data-i="s3t">Step 3 · Flash Device</h2>
+        <p class="step-sub" data-i="s3s">Connect board via USB-C cable, then click the button below.</p>
+      </div>
+
+      <!-- ZHILLY LANGUAGE & VOICE SELECTOR (Hidden for Option 1 flipbruce, visible for Options 2 & 3) -->
+      <div class="zhilly-lang-panel" id="zhillyLangPanel" style="display: none; margin: 18px 0; padding: 16px; border: 1px solid rgba(157,231,255,0.3); border-radius: 16px; background: rgba(157,231,255,0.03);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <strong style="color: var(--cyan); font-size: 1.05em;">🗣️ Zhilly AI Voice &amp; Language (v1.1.1.3)</strong>
+          <span style="background: rgba(255,114,114,0.18); color: #ff7272; border: 1px solid rgba(255,114,114,0.35); padding: 3px 10px; border-radius: 12px; font-size: 0.82em; font-weight: bold;">🔒 Single-Language Firmware (Zero Chinese)</span>
+        </div>
+        <p style="color: var(--muted); margin: 0 0 12px 0; font-size: 0.88em;">Select ONE language to flash into Zhilly AI (including Wi-Fi Setup, UI, Voice &amp; Prompts):</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="zhLangBtns">
+          <button type="button" class="btn" id="btnLangAr" onclick="setZhillyLanguage('ar-SA')" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--line2); color: var(--text);">🇸🇦 Arabic (ar-SA)</button>
+          <button type="button" class="btn" id="btnLangTr" onclick="setZhillyLanguage('tr-TR')" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--line2); color: var(--text);">🇹🇷 Türkçe (tr-TR)</button>
+          <button type="button" class="btn active" id="btnLangEn" onclick="setZhillyLanguage('en-US')" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 12px; background: rgba(123,227,176,0.15); border: 2px solid var(--ok); color: var(--ok); font-weight: bold;">🇬🇧 English (en-US)</button>
+        </div>
+        <div id="zhLangStatus" style="margin-top: 12px; padding: 10px 14px; background: rgba(0,0,0,0.35); border-radius: 10px; font-size: 0.86em; color: var(--muted); border-inline-start: 3px solid var(--ok);">
+          ✅ <b>Active Language: English (en-US) Only.</b> Flashes dedicated English firmware (`zhilly_en.bin`) — AI chat, Wi-Fi setup portal, and voice prompts are strictly English (no Chinese, no switching).
+        </div>
+      </div>
+
+      <!-- MANDATORY 60-COUNTRY TIMEZONE / GMT SELECTOR (NO CITIES) -->
+      <div class="country-tz-panel" id="countryTzPanel" style="display: none; margin: 18px 0; padding: 16px; border: 1px solid rgba(255,114,114,0.45); border-radius: 16px; background: rgba(255,255,255,0.03); transition: border-color 0.25s, box-shadow 0.25s;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <strong style="color: var(--cyan); font-size: 1.05em;" id="countryPanelTitle">🌍 Select Your Country (Local Time &amp; GMT)</strong>
+          <span id="countryReqBadge" style="background: rgba(255,114,114,0.2); color: #ff8a8a; border: 1px solid rgba(255,114,114,0.45); padding: 3px 10px; border-radius: 12px; font-size: 0.82em; font-weight: bold;">⚠️ REQUIRED BEFORE FLASHING</span>
+        </div>
+        <p id="countryPanelDesc" style="color: var(--muted); margin: 0 0 12px 0; font-size: 0.88em;">Mandatory so Zhilly AI knows your country, local time, and GMT offset (60 countries worldwide — country only, no city).</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="search" id="countrySearch" autocomplete="off" placeholder="🔍 Search country..." style="flex: 1; min-width: 170px; padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,0.45); border: 1px solid var(--line2); color: var(--text); font-size: 0.94em;">
+          <select id="countrySelect" required aria-required="true" style="flex: 2; min-width: 240px; padding: 10px 12px; border-radius: 12px; background: #101624; border: 2px solid rgba(255,114,114,0.55); color: var(--text); font-size: 0.95em; cursor: pointer;">
+            <option value="">-- Choose your country (Required) --</option>
+          </select>
+        </div>
+        <div id="countryTzStatus" style="margin-top: 12px; padding: 10px 14px; background: rgba(0,0,0,0.35); border-radius: 10px; font-size: 0.86em; color: #ff9c9c; border-inline-start: 3px solid #ff7272;">
+          ⚠️ <b>Required:</b> Select your country above before flashing so Zhilly's local clock and GMT time work accurately.
+        </div>
+      </div>
+
+      <!-- SWITCHING CONTROLS GUIDE -->
+      <div class="switch-guide-panel" style="margin: 18px 0; padding: 16px; border: 1px solid rgba(255,211,106,0.3); border-radius: 16px; background: rgba(255,211,106,0.03);">
+        <strong style="color: var(--warning); display: flex; align-items: center; gap: 6px; font-size: 1.02em; margin-bottom: 8px;">
+          <span>🎛️</span> Hardware Switching Controls:
+        </strong>
+        <ul style="margin: 0; padding-inline-start: 22px; line-height: 1.8; color: var(--text); font-size: 0.9em;">
+          <li><b>In Flipper Zero:</b> Press Center <b>OK knob</b> to open the Main Menu. Right between <b>NFC</b> and <b>Infrared</b>, click <b>"Switch to Zhilly AI"</b> (animated Zhilly eyes) or <b>"Switch to Bruce"</b> (animated Bruce Shark leaving) — works with or without SD card!</li>
+          <li><b>In Bruce:</b> Pick <b>Flipper Zero</b> or <b>Zhilly AI</b> directly in the Main Menu (shows only the firmware in your combo, works with or without SD card!).</li>
+          <li><b>In Zhilly AI:</b> Rotate the <b>Rotary Encoder Left</b> to open the slide-in <b>Zhilly Options UI</b> (adjust <b>Brightness</b>, <b>Switch to Flipper Zero / Bruce</b>, or <b>Factory Reset</b>; click the <b>Side Button</b> to go back)!</li>
+        </ul>
+      </div>
+
+      <div class="sel-banner">
+        <div><span data-i="selected">Selected:</span> <b id="selTitle">1. Bruce with Flipper (Dual-Boot) v1.1.1.3</b></div>
+        <div><span data-i="manifest">Manifest:</span> <b id="selManifest">manifest_flipper_bruce.json</b></div>
+      </div>
+      <div class="flashbox">
+        <esp-web-install-button id="espWebInstallBtn" manifest="manifest_flipper_bruce.json">
+          <button slot="activate" class="official-flash-btn">
+            <span class="btn-icon">⚡</span>
+            <span data-i="flashBtn">Connect & Flash Device</span>
+          </button>
+          <span slot="unsupported" data-i="unsup">⚠️ Browser does not support Web Serial. Open this page in Google Chrome or Microsoft Edge.</span>
+        </esp-web-install-button>
+      </div>
+      <div id="flashStatusBanner" style="display:none; margin: 12px 0; padding: 12px 16px; border-radius: 12px; font-size: 0.92em; line-height: 1.5; border: 1px solid var(--line2); background: rgba(0,0,0,0.4);"></div>
+
+      <!-- DIRECT TERMINAL FLASH FALLBACK -->
+      <div style="margin: 16px 0; padding: 14px; border: 1px dashed rgba(255,255,255,0.18); border-radius: 12px; background: rgba(0,0,0,0.25); text-align: center;">
+        <span style="font-size: 0.88em; color: var(--muted);">💡 Direct Terminal Flash Commands:</span>
+        <div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+          <code style="font-size: 0.95em; padding: 6px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; color: var(--cyan); user-select: all;">.\FLASH_FLIPPER_BRUCE.bat</code>
+          <code style="font-size: 0.95em; padding: 6px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; color: var(--warning); user-select: all;">.\FLASH_BRUCE_ZHILLY.bat</code>
+          <code style="font-size: 0.95em; padding: 6px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; color: var(--ok); user-select: all;">.\FLASH_FLIPPER_ZHILLY.bat</code>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="sub-h" data-i="tblTitle">Memory Offset Table</h3>
+        <div class="tw"><table>
+          <thead><tr>
+            <th data-i="thHex">Flash Offset (Hex)</th><th data-i="thDec">Decimal</th><th data-i="thFile">Binary File</th><th data-i="thDesc">Description</th>
+          </tr></thead>
+          <tbody id="offsetBody">
+            <tr><td class="hex">0x0</td><td class="dec">0</td><td class="f">bin/bootloader.bin</td><td>Second-stage bootloader</td></tr>
+            <tr><td class="hex">0x8000</td><td class="dec">32768</td><td class="f">bin/partition-table.bin</td><td>Partition table (OTA layout)</td></tr>
+            <tr><td class="hex">0x10000</td><td class="dec">65536</td><td class="f">bin/ota_data_initial.bin</td><td>OTA data (boot slot selector)</td></tr>
+            <tr><td class="hex">0x20000</td><td class="dec">131072</td><td class="f">bin/flipper.bin</td><td>Flipper Zero ESP32 port (ota_0, Primary Boot)</td></tr>
+            <tr><td class="hex">0x4E0000</td><td class="dec">5111808</td><td class="f">bin/bruce.bin</td><td>Bruce firmware (ota_1)</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="nav">
+        <button class="btn secondary" data-go="2" data-i="back">← Back</button>
+        <span id="flashAutoNote" style="font-size:0.86em;color:var(--muted);" data-i="flashAutoNote">⏳ Advances automatically to Step 4 (SD Card) when flashing finishes.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="page" id="pageTools">
+    <div class="card">
+      <div>
+        <h2 class="step-title" data-i="s4t">Step 4 · Companion Tools &amp; Diagnostics</h2>
+        <p class="step-sub" data-i="s4s">Monitor boot log and prepare FAT32 SD card pack.</p>
+      </div>
+      <div class="tools">
+        <div class="tool">
+          <h3 data-i="monT">📟 Live Serial Monitor</h3>
+          <p data-i="monD">View real-time ESP-IDF boot logs, Wi-Fi status and AI events at 115200 baud.</p>
+          <button class="btn primary" id="openMon" data-i="monOpen">Open Monitor</button>
+        </div>
+        <div class="tool" id="sdToolCard">
+          <h3 data-i="sdT">💾 MultiBoot SD Card Pack (v1.1.1.3)</h3>
+          <div id="sdAutoBanner" style="display:none; margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(123,227,176,0.14); border: 1px solid rgba(123,227,176,0.45); color: var(--ok); font-size: 0.88em;"></div>
+          <p data-i="sdD">Generates customized SD Card Pack for your selected firmware with real unzipped Flipper databases (only for Flipper combos) and hardware configurations.</p>
+          <div id="sdCountryWrap" style="display:none; margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(157,231,255,0.28); font-size: 0.86em;">
+            <div id="sdCountryLabel" style="margin-bottom: 6px; color: var(--cyan); font-weight: bold;">🌍 Country Local Time &amp; GMT:</div>
+            <select id="sdCountrySelect" style="width: 100%; padding: 8px 10px; border-radius: 8px; background: #101624; border: 1px solid var(--line2); color: var(--text); font-size: 0.94em;">
+              <option value="">-- Choose your country (Required) --</option>
+            </select>
+          </div>
+          <button class="btn primary" id="makeZip" data-i="sdBtn" style="width: 100%; margin-top: 10px;">⚡ Generate &amp; Download SD Pack</button>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="btn secondary" data-go="3" data-i="back">← Back</button>
+        <button class="btn secondary" data-go="0" data-i="again">↺ Start Over</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">MultiBoot for LilyGO T-Embed • LilyGO T-Embed CC1101 Plus • v1.1.1.3</footer>
+</div>
+</main>
+
+<!-- SERIAL MONITOR -->
+<div id="modal">
+  <div class="mbox">
+    <h3><span data-i="monT2">📟 Serial Monitor</span> <span id="mstat"></span></h3>
+    <div id="log"></div>
+    <div class="button-row">
+      <button class="btn primary" id="mConnect" data-i="mConn">Connect</button>
+      <button class="btn secondary" id="mDisconnect" data-i="mDisc" disabled>Disconnect</button>
+      <button class="btn secondary" id="mClear" data-i="mClear">Clear Log</button>
+      <button class="btn secondary" id="mClose" data-i="mClose" style="margin-inline-start:auto">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS & NEWS -->
+<button id="settingsButton" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel">⚙️</button>
+<button id="newsButton" type="button" aria-label="What's New in v1.1.1.3" aria-expanded="false" aria-controls="newsPanel" title="What's New in v1.1.1.3">📰<span id="newsBadge" class="news-badge" aria-label="Unread update">!</span></button>
+<div id="newsPanel" role="dialog" aria-label="What's New in v1.1.1.3" hidden>
+  <div class="sp-head"><strong data-i="newsT">📰 What's New in v1.1.1.3</strong><button type="button" class="sp-x" id="newsClose" aria-label="Close">✕</button></div>
+  <div class="news-ver">Version 1.1.1.3 • Release Notes</div>
+  <ul class="news-list" id="newsList">
+    <li><b>Real Connected Arabic Script &amp; Turkish Glyphs on Screen:</b> Embedded a 717-glyph multi-language font with full Arabic contextual letter shaping &amp; right-to-left rendering (<code>جاري الاتصال بـ Wi-Fi...</code>, <code>زيللي: جاهز</code>, <code>الاستماع...</code> — no English/Franco transliteration!).</li>
+    <li><b>Zhilly Options UI Crash &amp; Freeze Fix:</b> Unified LCD DMA rendering inside the emote engine so rotating the encoder <b>Left</b> to open <b>Zhilly Options</b> (Brightness, Switch to Flipper Zero / Bruce, Factory Reset) and pressing the <b>Side Button</b> to return works repeatedly with zero freezes or crashes.</li>
+    <li><b>Continuous Autonomous Eye Blinking:</b> Zhilly's oval eyes now blink continuously and naturally on their own without needing any button press, and never split apart or morph into unwanted animations.</li>
+    <li><b>Zero Voice Parrot / Echo Loop:</b> Hard-disabled audio loopback diagnostics and locked single-language AI prompts for fluent <b>Turkish</b>, <b>Arabic</b>, and <b>English</b> at 100% default speaker volume.</li>
+    <li><b>Clean Flipper Zero Left-Screen:</b> Removed the Left-key quick switch popup on the Flipper desktop so switching lives cleanly in the Main Menu (between <b>NFC</b> and <b>Infrared</b>), matching Bruce.</li>
+  </ul>
+</div>
+<div id="settingsPanel" role="dialog" aria-label="Settings" hidden>
+  <div class="sp-head"><strong data-i="setT">⚙️ Settings</strong><button type="button" class="sp-x" id="settingsClose" aria-label="Close">✕</button></div>
+  <div class="sp-row"><div class="sp-label" data-i="gfx">Graphics</div>
+    <div class="sp-seg" data-key="graphics">
+      <button type="button" data-val="high" data-i="high">High</button>
+      <button type="button" data-val="medium" data-i="med">Medium</button>
+      <button type="button" data-val="low" data-i="low">Low</button>
+    </div></div>
+  <div class="sp-row"><div class="sp-label" data-i="look">Look</div>
+    <div class="sp-seg" data-key="look">
+      <button type="button" data-val="milky" data-i="milky">🌌 Milky Way</button>
+      <button type="button" data-val="atom" data-i="atom">⚛️ Atom</button>
+    </div></div>
+  <div class="sp-row"><div class="sp-label" data-i="fps">Frames (FPS)</div>
+    <div class="sp-seg" data-key="fps">
+      <button type="button" data-val="30">30</button><button type="button" data-val="55">55</button><button type="button" data-val="60">60</button>
+    </div></div>
+  <div class="sp-row"><div class="sp-label" data-i="lang">Language</div>
+    <div class="sp-seg" data-key="lang">
+      <button type="button" data-val="en">English</button><button type="button" data-val="ar">العربية</button>
+    </div></div>
+  <div class="sp-row"><div class="sp-label"><span data-i="uiop">UI Opacity</span> <span id="uiOpacityValue">40%</span></div>
+    <input type="range" id="uiOpacity" class="ui-range" min="0" max="100" step="1" value="40" aria-label="UI opacity">
+    <p class="sp-note" data-i="uiNote">0% = text only • 100% = solid</p></div>
+  <p class="sp-note" data-i="gfxNote">High = best looking • Medium = lighter • Low = for weak devices</p>
+  <p class="sp-note" data-i="bgNote">These settings only affect the background, not buttons or UI.</p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   HELPERS
+========================================================= */
+const $ = id => document.getElementById(id);
+let toastTimer = null;
+function toast(m){ const el=$("toast"); el.textContent=m; el.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove("show"),3200); }
+
+/* button ripple */
+document.addEventListener("click", e => {
+  const b = e.target.closest(".btn"); if (!b) return;
+  const r = b.getBoundingClientRect();
+  b.style.setProperty("--ripple-x", (e.clientX - r.left) + "px");
+  b.style.setProperty("--ripple-y", (e.clientY - r.top) + "px");
+  b.classList.remove("rippling"); void b.offsetWidth; b.classList.add("rippling");
+});
+
+/* particles */
+(function(){
+  const c = $("particles");
+  for (let i=0;i<55;i++){
+    const p=document.createElement("span"); p.className="particle";
+    p.style.left=Math.random()*100+"%";
+    p.style.setProperty("--speed",(7+Math.random()*15)+"s");
+    p.style.setProperty("--drift",(-100+Math.random()*200)+"px");
+    p.style.animationDelay=(-Math.random()*18)+"s";
+    p.style.opacity=.15+Math.random()*.5;
+    c.appendChild(p);
+  }
+})();
+
+/* mouse parallax */
+document.addEventListener("mousemove", e => {
+  const a=document.querySelector(".atom-system"); if(!a) return;
+  a.style.setProperty("--mouse-x",((e.clientX/innerWidth-.5)*32)+"px");
+  a.style.setProperty("--mouse-y",((e.clientY/innerHeight-.5)*32)+"px");
+});
+
+/* click sparks */
+document.addEventListener("pointerdown", e => {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const hit = e.target.closest && e.target.closest(".btn, .opt, #settingsButton, #newsButton, .sp-seg button, .dot");
+  if (!hit) return;
+  const n = document.body.classList.contains("gfx-low") ? 5 : 12;
+  for (let i=0;i<n;i++){
+    const s=document.createElement("span"), a=Math.random()*Math.PI*2, d=26+Math.random()*56;
+    s.className="click-spark"; s.style.left=e.clientX+"px"; s.style.top=e.clientY+"px";
+    s.style.setProperty("--sx",Math.cos(a)*d+"px"); s.style.setProperty("--sy",Math.sin(a)*d+"px");
+    document.body.appendChild(s); setTimeout(()=>s.remove(),800);
+  }
+},{passive:true});
+
+/* =========================================================
+   INTERACTIVE MILKY WAY ENGINE
+========================================================= */
+(function galaxyEngine(){
+  const canvas=$("galaxyCanvas"); if(!canvas) return;
+  const ctx=canvas.getContext("2d");
+  const coarse=matchMedia("(pointer: coarse)").matches||innerWidth<=760;
+  const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const LEVELS={
+    high:{stars:coarse?15000:32000,knots:coarse?280:760,field:coarse?320:760,blobs:coarse?800:1900,nebula:coarse?1024:2048,dpr:coarse?2:2.5,sprites:true},
+    medium:{stars:coarse?5500:11000,knots:coarse?90:240,field:260,blobs:coarse?260:600,nebula:1024,dpr:1.5,sprites:true},
+    low:{stars:coarse?1500:3000,knots:0,field:120,blobs:90,nebula:512,dpr:1,sprites:false}
+  };
+  let levelName="high",CFG=LEVELS.high,look="milky",built=false;
+  let W=0,H=0,dpr=1,scale=1;
+  const gauss=()=>Math.random()+Math.random()+Math.random()-1.5;
+
+  const PALETTE=[[38,85,82],[30,90,76],[45,80,88],[200,80,92],[205,90,86],[215,85,84],[225,80,80],[235,75,78],[250,70,76],[270,65,74],[340,85,76],[50,95,86]];
+  const ALPHAS=[.28,.52,.8], BUCKETS=PALETTE.length*3, FILL=[], BUCKET_ALPHA=[];
+  for(let b=0;b<BUCKETS;b++){const c=PALETTE[Math.floor(b/3)];FILL.push(`hsl(${c[0]},${c[1]}%,${c[2]}%)`);BUCKET_ALPHA.push(ALPHAS[b%3]);}
+
+  function makeSprite(h,s,l){
+    const o=document.createElement("canvas");o.width=o.height=128;const g=o.getContext("2d");
+    const r=g.createRadialGradient(64,64,0,64,64,64);
+    r.addColorStop(0,`hsla(${h},${s}%,${Math.min(98,l+12)}%,1)`);
+    r.addColorStop(.12,`hsla(${h},${s}%,${l}%,.75)`);
+    r.addColorStop(.35,`hsla(${h},${s}%,${l}%,.25)`);
+    r.addColorStop(1,`hsla(${h},${s}%,${l}%,0)`);
+    g.fillStyle=r;g.fillRect(0,0,128,128);return o;
+  }
+  const SPRITES=[makeSprite(205,100,86),makeSprite(18,100,70),makeSprite(338,90,72),makeSprite(48,100,80)];
+
+  let STAR_COUNT=0,KNOT_COUNT=0,FIELD_COUNT=0;
+  let R,TH,LIFT,SP,SZ,B_START,B_END,KR,KTH,KLIFT,KSP,KSZ,KSPR,FX,FY,FS,FP;
+  let nebula=null;const nebulaCache={};
+  let quality=1,slow=0;
+
+  function build(name){
+    levelName=LEVELS[name]?name:"high";CFG=LEVELS[levelName];
+    STAR_COUNT=CFG.stars;KNOT_COUNT=CFG.knots;FIELD_COUNT=CFG.field;
+    const tmp=[];
+    for(let i=0;i<STAR_COUNT;i++){
+      let r,th,b,size,lift;
+      if(Math.random()<.2){
+        r=Math.pow(Math.random(),2.2)*125;th=Math.random()*6.2832;
+        b=Math.floor(Math.random()*3)*3+Math.floor(Math.random()*3);
+        size=Math.random()*1.5+.4;lift=gauss()*24;
+      }else{
+        r=45+Math.pow(Math.random(),.82)*520;
+        th=(i%2)*Math.PI+3.1*Math.log(r/40)+gauss()*Math.max(.1,.62-r/1100);
+        let col;const roll=Math.random();
+        if(roll<.04)col=10;else if(roll<.07)col=11;else if(r<200)col=3+Math.floor(Math.random()*3);else col=5+Math.floor(Math.random()*5);
+        b=col*3+Math.floor(Math.random()*3);size=Math.random()*1.7+.35;lift=gauss()*15;
+      }
+      tmp.push({r,th,b,size,lift,sp:.00012*(1+170/(r+50))});
+    }
+    tmp.sort((a,b)=>a.b-b.b);
+    R=new Float32Array(STAR_COUNT);TH=new Float32Array(STAR_COUNT);LIFT=new Float32Array(STAR_COUNT);
+    SP=new Float32Array(STAR_COUNT);SZ=new Float32Array(STAR_COUNT);
+    B_START=new Int32Array(BUCKETS);B_END=new Int32Array(BUCKETS);
+    for(let b=0;b<BUCKETS;b++){B_START[b]=-1;B_END[b]=0;}
+    tmp.forEach((st,i)=>{R[i]=st.r;TH[i]=st.th;LIFT[i]=st.lift;SP[i]=st.sp;SZ[i]=st.size;if(B_START[st.b]<0)B_START[st.b]=i;B_END[st.b]=i+1;});
+
+    KR=new Float32Array(KNOT_COUNT);KTH=new Float32Array(KNOT_COUNT);KLIFT=new Float32Array(KNOT_COUNT);
+    KSP=new Float32Array(KNOT_COUNT);KSZ=new Float32Array(KNOT_COUNT);KSPR=new Uint8Array(KNOT_COUNT);
+    for(let i=0;i<KNOT_COUNT;i++){
+      const r=60+Math.pow(Math.random(),.9)*500;
+      KR[i]=r;KTH[i]=(i%2)*Math.PI+3.1*Math.log(r/40)+gauss()*Math.max(.08,.5-r/1200);
+      KLIFT[i]=gauss()*12;KSP[i]=.00012*(1+170/(r+50));
+      const roll=Math.random();KSPR[i]=roll<.45?2:roll<.7?1:roll<.85?3:0;KSZ[i]=9+Math.random()*22;
+    }
+    FX=new Float32Array(FIELD_COUNT);FY=new Float32Array(FIELD_COUNT);FS=new Float32Array(FIELD_COUNT);FP=new Float32Array(FIELD_COUNT);
+    for(let i=0;i<FIELD_COUNT;i++){FX[i]=Math.random();FY[i]=Math.random();FS[i]=Math.random()*1.4+.3;FP[i]=Math.random()*6.28;}
+
+    quality=1;slow=0;nebula=nebulaCache[levelName]||null;
+    if(!nebula){const wanted=levelName;setTimeout(()=>paintNebula(wanted),30);}
+    built=true;resize();
+  }
+
+  function paintNebula(name){
+    if(nebulaCache[name])return;
+    const cfg=LEVELS[name],size=cfg.nebula,c=document.createElement("canvas");
+    c.width=c.height=size;const n=c.getContext("2d"),u=size/1240,mid=size/2;
+    n.globalCompositeOperation="lighter";
+    const bulge=n.createRadialGradient(mid,mid,0,mid,mid,150*u);
+    bulge.addColorStop(0,"rgba(255,236,200,.7)");bulge.addColorStop(.3,"rgba(255,190,120,.28)");bulge.addColorStop(1,"rgba(255,150,80,0)");
+    n.fillStyle=bulge;n.fillRect(0,0,size,size);
+    for(let k=0;k<cfg.blobs;k++){
+      const r=45+Math.pow(Math.random(),.85)*520;
+      const th=(k%2)*Math.PI+3.1*Math.log(r/40)+gauss()*Math.max(.1,.55-r/1200);
+      const x=mid+Math.cos(th)*r*u,y=mid+Math.sin(th)*r*u,rad=(16+Math.random()*60)*u,roll=Math.random();
+      let hue=r<200?205:228;if(roll<.07)hue=336;else if(roll<.11)hue=40;
+      const g=n.createRadialGradient(x,y,0,x,y,rad);
+      g.addColorStop(0,`hsla(${hue},85%,62%,${.03+Math.random()*.045})`);g.addColorStop(1,`hsla(${hue},85%,62%,0)`);
+      n.fillStyle=g;n.fillRect(x-rad,y-rad,rad*2,rad*2);
+    }
+    nebulaCache[name]=c;if(levelName===name)nebula=c;
+  }
+
+  function resize(){
+    dpr=Math.min(devicePixelRatio||1,CFG.dpr);W=innerWidth;H=innerHeight;
+    canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);
+    scale=Math.min(W,H)*.5/560*1.4;
+  }
+  let resizeTimer=null;
+  addEventListener("resize",()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(built)resize();},120);});
+
+  let ux=.5,uy=.5,ptx=0,pty=0,lastInteract=-1e9,down=false,lastX=null,spin=0;
+  function interact(x,y){
+    if(lastX!==null&&down)spin=Math.max(-3,Math.min(3,spin+(x-lastX)*.04));
+    lastX=x;ptx=x;pty=y;ux=x/W;uy=y/H;lastInteract=performance.now();
+  }
+  const opt={passive:true};
+  addEventListener("pointermove",e=>interact(e.clientX,e.clientY),opt);
+  addEventListener("pointerdown",e=>{down=true;lastX=e.clientX;interact(e.clientX,e.clientY);},opt);
+  addEventListener("pointerup",()=>{down=false;lastX=null;},opt);
+  addEventListener("pointercancel",()=>{down=false;lastX=null;},opt);
+  addEventListener("touchstart",e=>{const t=e.touches[0];if(!t)return;down=true;lastX=t.clientX;interact(t.clientX,t.clientY);},opt);
+  addEventListener("touchmove",e=>{const t=e.touches[0];if(t)interact(t.clientX,t.clientY);},opt);
+  addEventListener("touchend",()=>{down=false;lastX=null;},opt);
+
+  const calm=reduceMotion;
+  let fps=60,interval=1000/60,running=false,prevRaf=0,lastDraw=0,acc=0,tt=0,rot=0,cxn=.5,cyn=.5,well=0,avg=16.7;
+  const WELL_RADIUS=coarse?130:170,WELL_FORCE=coarse?30:26;
+
+  function loop(now){
+    if(!running)return;
+    requestAnimationFrame(loop);
+    if(document.hidden){prevRaf=now;lastDraw=now;acc=0;return;}
+    acc+=Math.min(now-prevRaf,100);prevRaf=now;
+    const step=calm?Math.max(interval,33.3):interval;
+    if(acc<step-.6)return;
+    acc=Math.min(acc-step,step);
+    draw(now);
+  }
+
+  function draw(now){
+    const dt=Math.min(now-lastDraw,60);lastDraw=now;tt+=dt;
+    avg+=(dt-avg)*.05;
+    const target=calm?Math.max(interval,33.3):interval;
+    if(avg>target*1.5+4)slow++;else slow=Math.max(0,slow-2);
+    if(slow>90&&quality>.5){quality=Math.max(.5,quality*.85);slow=0;}
+
+    const interacting=!calm&&now-lastInteract<1800;
+    const tx=interacting?ux:.5+.3*Math.sin(tt*.00028);
+    const ty=interacting?uy:.5+.24*Math.sin(tt*.00021+1.4);
+    const ease=Math.min(1,dt*.0045);
+    cxn+=(tx-cxn)*ease;cyn+=(ty-cyn)*ease;
+    well+=((interacting?1:0)-well)*Math.min(1,dt*.006);
+    spin*=Math.pow(.95,dt/16.7);
+    rot+=dt*(calm?.45:1+spin);
+
+    const tilt=.62+(cyn-.5)*.9,yaw=(cxn-.5)*1;
+    const sT=Math.sin(tilt),cT=Math.cos(tilt),sY=Math.sin(yaw),cY=Math.cos(yaw);
+    const cx=W/2+(cxn-.5)*40,cy=H/2+(cyn-.5)*28;
+
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation="lighter";
+    ctx.fillStyle="#cfe4ff";
+    for(let i=0;i<FIELD_COUNT;i++){
+      ctx.globalAlpha=.3+.3*(.5+.5*Math.sin(tt*.0005*(.6+FP[i]*.15)+FP[i]));
+      ctx.fillRect(FX[i]*W,FY[i]*H,FS[i],FS[i]);
+    }
+    if(nebula){
+      ctx.save();ctx.translate(cx,cy);ctx.scale(Math.max(.35,cY),sT);ctx.rotate(rot*.00009);ctx.globalAlpha=.75;
+      ctx.drawImage(nebula,-620*scale,-620*scale,1240*scale,1240*scale);ctx.restore();
+    }
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,200*scale);
+    core.addColorStop(0,"rgba(255,244,222,.5)");core.addColorStop(.18,"rgba(255,206,150,.2)");
+    core.addColorStop(.55,"rgba(90,150,255,.06)");core.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.globalAlpha=1;ctx.fillStyle=core;ctx.fillRect(cx-220*scale,cy-220*scale,440*scale,440*scale);
+
+    const sizeK=Math.max(.8,scale*.9),wr2=WELL_RADIUS*WELL_RADIUS,pulling=well>.01;
+    for(let b=0;b<BUCKETS;b++){
+      const start=B_START[b];if(start<0)continue;
+      const end=start+Math.ceil((B_END[b]-start)*quality);
+      ctx.fillStyle=FILL[b];
+      ctx.globalAlpha=BUCKET_ALPHA[b]*(.92+.08*Math.sin(tt*.0012+b));
+      for(let i=start;i<end;i++){
+        const a=TH[i]+rot*SP[i],x=Math.cos(a)*R[i],z=Math.sin(a)*R[i],l=LIFT[i];
+        const y2=z*sT+l*cT,z2=z*cT-l*sT,x1=x*cY+z2*sY,z3=-x*sY+z2*cY,pf=1+z3*.0006;
+        let sx=cx+x1*scale*pf,sy=cy+y2*scale*pf;
+        if(pulling){
+          const dx=sx-ptx,dy=sy-pty,d2=dx*dx+dy*dy;
+          if(d2<wr2&&d2>1){
+            const d=Math.sqrt(d2);let f=1-d/WELL_RADIUS;f=f*f*well*WELL_FORCE;
+            const nx=dx/d,ny=dy/d;sx+=-nx*f-ny*f*.6;sy+=-ny*f+nx*f*.6;
+          }
+        }
+        const sz=SZ[i]*sizeK;ctx.fillRect(sx,sy,sz,sz);
+      }
+    }
+    if(KNOT_COUNT&&CFG.sprites){
+      ctx.globalAlpha=.75;
+      for(let i=0;i<KNOT_COUNT;i++){
+        const a=KTH[i]+rot*KSP[i],x=Math.cos(a)*KR[i],z=Math.sin(a)*KR[i],l=KLIFT[i];
+        const y2=z*sT+l*cT,z2=z*cT-l*sT,x1=x*cY+z2*sY,z3=-x*sY+z2*cY,pf=1+z3*.0006;
+        let sx=cx+x1*scale*pf,sy=cy+y2*scale*pf;
+        if(pulling){
+          const dx=sx-ptx,dy=sy-pty,d2=dx*dx+dy*dy;
+          if(d2<wr2&&d2>1){const d=Math.sqrt(d2);let f=1-d/WELL_RADIUS;f=f*f*well*WELL_FORCE;sx-=(dx/d)*f;sy-=(dy/d)*f;}
+        }
+        const sz=KSZ[i]*Math.max(.7,scale*.8);
+        ctx.drawImage(SPRITES[KSPR[i]],sx-sz/2,sy-sz/2,sz,sz);
+      }
+    }
+    ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";
+  }
+
+  function start(){if(running||look!=="milky"||!built)return;running=true;prevRaf=performance.now();lastDraw=prevRaf;acc=interval;requestAnimationFrame(loop);}
+  function stop(){running=false;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);}
+  function setFps(n){const v=Number(n);fps=(v===30||v===55||v===60)?v:60;interval=1000/fps;acc=interval;}
+  function setLook(v){look=v==="atom"?"atom":"milky";if(look==="atom"){stop();canvas.style.display="none";}else{canvas.style.display="block";start();}}
+  function setQuality(name){build(name);if(look==="milky")start();}
+  function configure(o){o=o||{};setFps(o.fps);build(o.quality);setLook(o.look);}
+  window.GalaxyBG={configure,setQuality,setLook,setFps};
+  setTimeout(()=>{if(!built)configure({});},2000);
+})();
+
+/* =========================================================
+   ATOM EMITTER  (7 emojis drift away and turn to dust)
+========================================================= */
+(function atomEmitter(){
+  const bg=$("background"),box=document.createElement("div");box.id="atomEmitter";
+  ["⚡","🔌","🖥️","📡","🌐","✨","🚀"].forEach((emoji,i)=>{
+    const s=document.createElement("span"),angle=(i/7)*Math.PI*2+(Math.random()-.5)*.5,dist=30+Math.random()*16;
+    s.className="emit";s.textContent=emoji;
+    s.style.setProperty("--dx",(Math.cos(angle)*dist).toFixed(1)+"vmin");
+    s.style.setProperty("--dy",(Math.sin(angle)*dist).toFixed(1)+"vmin");
+    s.style.setProperty("--rot",Math.round(Math.random()*80-40)+"deg");
+    s.style.setProperty("--dur",(10+Math.random()*4).toFixed(1)+"s");
+    s.style.setProperty("--delay",(-i*1.7).toFixed(1)+"s");
+    box.appendChild(s);
+  });
+  bg.appendChild(box);
+})();
+
+/* =========================================================
+   WARP  (Milky Way <-> Atom transition)
+========================================================= */
+const Warp=(function(){
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const EMOJI=["⚡","🔌","🖥️","📡","🌐","✨","💻","🔧","🚀","⭐"];
+  let busy=false;
+  function run(toLook,swap){
+    const bg=$("background");
+    if(reduce||!bg||busy){swap();return;}
+    busy=true;
+    const cv=document.createElement("canvas");cv.id="warpCanvas";bg.appendChild(cv);
+    const dpr=Math.min(devicePixelRatio||1,1.5),W=innerWidth,H=innerHeight;
+    cv.width=Math.floor(W*dpr);cv.height=Math.floor(H*dpr);
+    const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);
+    const cx=W/2,cy=H/2,maxR=Math.hypot(cx,cy);
+    const level=document.body.classList.contains("gfx-low")?0:document.body.classList.contains("gfx-medium")?1:2;
+    const N=[150,320,620][level];
+    const stars=Array.from({length:N},()=>({a:Math.random()*Math.PI*2,r:maxR*(.15+Math.random()*.95),hue:195+Math.random()*70,w:.6+Math.random()*1.5}));
+    const T_RUSH=2100,T_FLASH=300,T_BOOM=2000,TOTAL=T_RUSH+T_FLASH+T_BOOM;
+    const start=performance.now();let last=start,swapped=false,parts=null;
+    function frame(now){
+      const t=now-start,dt=Math.min(now-last,50)/1000;last=now;
+      c.clearRect(0,0,W,H);
+      if(t<T_RUSH){
+        const p=t/T_RUSH,speed=40+Math.pow(p,3.4)*3600,trail=Math.min(320,6+Math.pow(p,2.6)*340);
+        c.globalCompositeOperation="lighter";c.lineCap="round";
+        for(const s of stars){
+          s.r-=speed*dt*(.55+s.w*.3);
+          if(s.r<10){s.r=maxR*(.75+Math.random()*.35);s.a=Math.random()*Math.PI*2;}
+          const cos=Math.cos(s.a),sin=Math.sin(s.a);
+          c.strokeStyle=`hsla(${s.hue},90%,${70+p*20}%,${.25+p*.65})`;c.lineWidth=s.w*(.7+p*1.1);
+          c.beginPath();c.moveTo(cx+cos*s.r,cy+sin*s.r);c.lineTo(cx+cos*(s.r+trail),cy+sin*(s.r+trail));c.stroke();
+        }
+        const gr=30+p*p*190,g=c.createRadialGradient(cx,cy,0,cx,cy,gr);
+        g.addColorStop(0,`rgba(255,255,255,${.2+p*p*.75})`);g.addColorStop(.5,`rgba(150,210,255,${.12+p*.3})`);g.addColorStop(1,"rgba(0,0,0,0)");
+        c.fillStyle=g;c.fillRect(cx-gr,cy-gr,gr*2,gr*2);
+      }else if(t<T_RUSH+T_FLASH){
+        const p=(t-T_RUSH)/T_FLASH,strength=1-Math.abs(p*2-1);
+        if(!swapped&&p>=.5){swapped=true;swap();}
+        const rad=maxR*(.15+p*1.1),g=c.createRadialGradient(cx,cy,0,cx,cy,rad);
+        g.addColorStop(0,`rgba(255,255,255,${strength})`);g.addColorStop(.6,`rgba(190,230,255,${strength*.7})`);g.addColorStop(1,"rgba(0,0,0,0)");
+        c.globalCompositeOperation="source-over";c.fillStyle=g;c.fillRect(0,0,W,H);
+      }else{
+        if(!swapped){swapped=true;swap();}
+        const p=(t-T_RUSH-T_FLASH)/T_BOOM;
+        if(!parts){
+          parts=Array.from({length:N},()=>({a:Math.random()*Math.PI*2,v:260+Math.random()*1700,x:0,hue:190+Math.random()*80,w:.8+Math.random()*1.8}));
+          if(toLook==="atom")parts.push(...EMOJI.map((e,i)=>({emoji:e,a:(i/EMOJI.length)*Math.PI*2+Math.random()*.4,v:380+Math.random()*520,x:0,spin:(Math.random()-.5)*7})));
+        }
+        c.globalCompositeOperation="lighter";
+        const fade=Math.max(0,1-p),ease=1-Math.pow(1-p,3);
+        c.strokeStyle=`rgba(190,230,255,${.6*fade})`;c.lineWidth=7*fade+1;
+        c.beginPath();c.arc(cx,cy,ease*maxR*1.15,0,Math.PI*2);c.stroke();
+        for(const q of parts){
+          q.x=q.v*ease*1.9;
+          const x=cx+Math.cos(q.a)*q.x,y=cy+Math.sin(q.a)*q.x;
+          if(q.emoji){
+            c.save();c.globalAlpha=Math.min(1,fade*1.4);c.translate(x,y);c.rotate(q.spin*p*3);
+            c.font="30px system-ui, Apple Color Emoji, Segoe UI Emoji, sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText(q.emoji,0,0);c.restore();
+          }else{
+            const len=6+(1-p)*40;
+            c.strokeStyle=`hsla(${q.hue},90%,78%,${fade})`;c.lineWidth=q.w;
+            c.beginPath();c.moveTo(x,y);c.lineTo(x-Math.cos(q.a)*len,y-Math.sin(q.a)*len);c.stroke();
+          }
+        }
+      }
+      if(t<TOTAL)requestAnimationFrame(frame);else{cv.remove();busy=false;}
+    }
+    requestAnimationFrame(frame);
+  }
+  return {run};
+})();
+
+/* =========================================================
+   UI OPACITY SLIDER
+========================================================= */
+(function uiOpacity(){
+  const KEY="mbFlasherUi";let value=40;
+  try{const s=JSON.parse(localStorage.getItem(KEY)||"{}");if(Number.isFinite(s.opacity))value=Math.max(0,Math.min(100,s.opacity));}catch(e){}
+  const range=$("uiOpacity"),label=$("uiOpacityValue");
+  function apply(){
+    document.documentElement.style.setProperty("--ui",(value/100).toFixed(3));
+    document.body.classList.toggle("ui-low",value<50);
+    range.value=String(value);label.textContent=value+"%";
+  }
+  apply();
+  range.addEventListener("input",()=>{value=Number(range.value);apply();});
+  range.addEventListener("change",()=>{try{localStorage.setItem(KEY,JSON.stringify({opacity:value}));}catch(e){}});
+})();
+
+/* =========================================================
+   LANGUAGE (Arabic / English)
+========================================================= */
+const EN = {
+  brand:"MultiBoot for LilyGO T-Embed Flasher",heroTitle:"Welcome to MultiBoot for LilyGO T-Embed",
+  heroDesc:"Real flashing over Web Serial for the LilyGO T-Embed CC1101 Plus. Four simple steps: hardware, firmware, flash, tools.",
+  b1:"🔌 4 steps",b3:"🌐 Chrome / Edge",b4:"🔒 One supported device",
+  heroNote:"Connect the device with a USB-C cable before you start, and use Chrome or Edge.",start:"🚀 Start flashing",
+  s1t:"Step 1 · Target Hardware",s1s:"Only one board is supported, and it is already selected and locked.",locked:"🔒 Locked",
+  back:"← Back",nextFW:"Next: Choose firmware →",
+  s2t:"Step 2 · Firmware Decision (v1.1.1.3)",s2s:"Choose one of the 3 dual-boot decisions below. Manifest switches automatically.",nextFlash:"Next: Flash →",
+  s3t:"Step 3 · Flash the Device",s3s:"Plug the board in over USB-C, then press the button.",selected:"Selected:",manifest:"Manifest:",
+  flashBtn:"Connect & Flash Device",unsup:"⚠️ Web Serial is unsupported in this browser. Please open in Google Chrome or Microsoft Edge.",
+  tblTitle:"Memory Offset Table",thHex:"Flash Offset (Hex)",thDec:"Decimal",thFile:"Binary File",thDesc:"Description",nextTools:"Next: Tools →",flashAutoNote:"⏳ Advances automatically to Step 4 (SD Card) when flashing finishes.",
+  s4t:"Step 4 · Companion Tools & Diagnostics",s4s:"Watch the boot log and prepare the SD card.",
+  monT:"📟 Live Serial Monitor",monD:"View real-time ESP-IDF boot logs, Wi-Fi status and AI events at 115200 baud.",monOpen:"Open Monitor",
+  sdT:"💾 MultiBoot SD Card Pack (v1.1.1.3)",sdD:"Generates customized SD Card Pack with real unzipped Flipper databases (for Flipper combos only) and configs.",sdBtn:"Generate & Download",again:"↺ Start over",
+  monT2:"📟 Serial Monitor",mConn:"Connect",mDisc:"Disconnect",mClear:"Clear Log",mClose:"Close",
+  setT:"⚙️ Settings",newsT:"📰 What's New in v1.1.1.3",gfx:"Graphics",high:"High",med:"Medium",low:"Low",look:"Look",milky:"🌌 Milky Way",atom:"⚛️ Atom",fps:"Frames (FPS)",lang:"Language",
+  uiop:"UI opacity",uiNote:"0% = text only • 100% = solid",gfxNote:"High = best looking • Medium = lighter • Low = for weak devices",
+  bgNote:"These settings only affect the background, not the buttons or the interface.",
+  /* dynamic */
+  connected:"· connected @ 115200",disconnected:"· disconnected",
+  logConn:"--- connected ---\n",logDisc:"\n--- disconnected ---\n",
+  noSerial:"Web Serial is not supported. Use Chrome or Edge.\n",
+  zipFail:"JSZip / FileSaver failed to load. Check your internet connection.",zipOk:"SD card pack downloaded.",
+  bWarn:'⚠️ <b>Opened from <code>file:///</code></b> — Chromium browsers block Web Serial binary streaming over <code>file:///</code> due to CORS. Open this page via <code>http://localhost:8000</code> (or run <code>START_WEB_FLASHER.bat</code>).',
+  bOk:"🟢 Web Serial Engine Online",
+  stp1:"Hardware",stp2:"Firmware",stp3:"Flash",stp4:"Tools",
+  def:"Default",parts:"partitions",
+  d_boot:"Second-stage bootloader",d_part:"Partition table (OTA layout)",d_ota:"OTA data (boot slot selector)",
+  d_bruce:"Bruce firmware (ota_0)",d_flip0:"Flipper Zero ESP32 port (ota_0)",d_flip1:"Flipper Zero ESP32 port (ota_1)",
+  d_zhilly2:"Zhilly AI firmware (ota_2, selected single language)",d_assets:"Shared assets (fonts, eyes, language packs)",
+  d_bruce1:"Bruce firmware (ota_1)",d_zhilly0:"Zhilly AI firmware (ota_0)",
+  d_blank:"Erase unused OTA slot (clean combo isolation)",
+  f_bf:"1. Flipper Zero (Primary Boot) + Bruce RF (Dual-Boot: Switch in Main Menu between NFC & IR)",
+  f_bz:"2. Bruce RF suite + Zhilly Voice AI (Locked single language: English, Arabic, or Turkish)",
+  f_fz:"3. Flipper Zero (Primary Boot) + Zhilly Voice AI (Locked single language, switch between NFC & IR)"
+};
+const AR = {
+  brand:"فلاشر MultiBoot لـ LilyGO T-Embed",heroTitle:"مرحباً بك في MultiBoot لـ LilyGO T-Embed",
+  heroDesc:"فلاش حقيقي عبر Web Serial لجهاز LilyGO T-Embed CC1101 Plus. ثلاث خيارات إقلاع مزدوج: Bruce و Flipper و Zhilly AI.",
+  b1:"🔌 4 خطوات",b3:"🌐 Chrome / Edge",b4:"🔒 جهاز واحد مدعوم",
+  heroNote:"وصّل الجهاز بكابل USB-C قبل البدء، واستخدم متصفح Chrome أو Edge.",start:"🚀 ابدأ الفلاش",
+  s1t:"الخطوة 1 · الجهاز",s1s:"يوجد جهاز واحد مدعوم، وهو محدد ومقفل مسبقاً.",locked:"🔒 مقفل",
+  back:"رجوع →",nextFW:"التالي: الفيرموير ←",
+  s2t:"الخطوة 2 · اختيار الفيرموير (v1.1.1.3)",s2s:"اختر واحداً من قرارات الإقلاع المزدوج الثلاثة فقط.",nextFlash:"التالي: الفلاش ←",
+  s3t:"الخطوة 3 · فلاش الجهاز",s3s:"وصّل اللوحة بكابل USB-C ثم اضغط الزر.",selected:"المحدد:",manifest:"ملف التعريف:",
+  flashBtn:"اتصال وفلاش الجهاز",unsup:"⚠️ المتصفح لا يدعم Web Serial. افتح الصفحة في Google Chrome أو Microsoft Edge.",
+  tblTitle:"جدول عناوين الذاكرة",thHex:"العنوان (Hex)",thDec:"عشري",thFile:"ملف البايناري",thDesc:"الوصف",nextTools:"التالي: الأدوات ←",flashAutoNote:"⏳ ينتقل تلقائياً إلى الخطوة الأخيرة (بطاقة SD) فور انتهاء الفلاش.",
+  s4t:"الخطوة 4 · الأدوات والتشخيص",s4s:"راقب سجل الإقلاع وجهّز بطاقة SD.",
+  monT:"📟 شاشة السيريال المباشرة",monD:"اعرض سجلات إقلاع ESP-IDF وحالة Wi-Fi وأحداث الذكاء الاصطناعي لحظياً بسرعة 115200.",monOpen:"فتح الشاشة",
+  sdT:"💾 حزمة بطاقة SD (v1.1.1.3)",sdD:"تنزيل حزمة بطاقة SD المخصصة مع ملفات Flipper المفكوكة (لخيارات Flipper فقط) وإعدادات الجهاز.",sdBtn:"توليد وتنزيل",again:"↺ البدء من جديد",
+  monT2:"📟 شاشة السيريال",mConn:"اتصال",mDisc:"قطع الاتصال",mClear:"مسح السجل",mClose:"إغلاق",
+  setT:"⚙️ الإعدادات",newsT:"📰 الجديد في الإصدار v1.1.1.3",gfx:"الرسومات",high:"عالية",med:"متوسطة",low:"منخفضة",look:"الشكل",milky:"🌌 درب التبانة",atom:"⚛️ الذرة",fps:"الإطارات (FPS)",lang:"اللغة",
+  uiop:"كثافة الواجهة",uiNote:"0% = نص فقط • 100% = صلب",gfxNote:"عالية = أجمل شكل • متوسطة = أخف • منخفضة = للأجهزة الضعيفة",
+  bgNote:"تؤثر هذه الإعدادات على الخلفية فقط، وليس على الأزرار أو الواجهة.",
+  connected:"· متصل @ 115200",disconnected:"· غير متصل",
+  logConn:"--- تم الاتصال ---\n",logDisc:"\n--- تم قطع الاتصال ---\n",
+  noSerial:"المتصفح لا يدعم Web Serial. استخدم Chrome أو Edge.\n",
+  zipFail:"تعذر تحميل JSZip / FileSaver. تحقق من اتصال الإنترنت.",zipOk:"تم تنزيل حزمة بطاقة SD.",
+  bWarn:'⚠️ <b>الصفحة مفتوحة من <code>file:///</code></b> — متصفحات Chromium تمنع بث البايناري عبر Web Serial من <code>file:///</code> بسبب CORS. افتح الصفحة عبر <code>http://localhost:8000</code> (أو شغّل <code>START_WEB_FLASHER.bat</code>).',
+  bOk:"🟢 محرك Web Serial يعمل",
+  stp1:"الجهاز",stp2:"الفيرموير",stp3:"الفلاش",stp4:"الأدوات",
+  def:"افتراضي",parts:"أقسام",
+  d_boot:"محمّل الإقلاع (Bootloader)",d_part:"جدول الأقسام (تخطيط OTA)",d_ota:"بيانات OTA (اختيار قسم الإقلاع)",
+  d_bruce:"فيرموير Bruce (ota_0)",d_flip0:"منفذ Flipper Zero لـ ESP32 (ota_0)",d_flip1:"منفذ Flipper Zero لـ ESP32 (ota_1)",
+  d_zhilly2:"فيرموير Zhilly AI (ota_2، اللغة المختارة فقط)",d_assets:"ملفات مشتركة (خطوط، عيون، حزم لغات)",
+  d_bruce1:"فيرموير Bruce (ota_1)",d_zhilly0:"فيرموير Zhilly AI (ota_0)",
+  d_blank:"مسح قسم OTA غير المستخدم (منع تداخل الأنظمة)",
+  f_bf:"1. منفذ Flipper Zero (إقلاع افتراضي) + حزمة Bruce (التبديل من القائمة الرئيسية بين NFC و IR)",
+  f_bz:"2. حزمة Bruce + مساعد Zhilly الصوتي (لغة واحدة مقفلة: إنجليزية أو عربية أو تركية)",
+  f_fz:"3. منفذ Flipper Zero (إقلاع افتراضي) + مساعد Zhilly (لغة واحدة مقفلة، التبديل بين NFC و IR)"
+};
+let lang="en";
+const t = k => (lang==="en"?EN:AR)[k] || k;
+
+/* =========================================================
+   FLASHER DATA, 60-COUNTRY TIMEZONE & 3 DUAL-BOOT DECISIONS (v1.1.1.3)
+========================================================= */
+let activeZhillyLang = "en-US";
+const zhillyLangSuffix = () => activeZhillyLang==="ar-SA" ? "ar" : (activeZhillyLang==="tr-TR" ? "tr" : "en");
+
+const WORLD_COUNTRIES_60 = [
+  { code:"DZ", name:"Algeria", ar:"الجزائر", gmt:"GMT+1", tz:"CET-1", offsetHours:1 },
+  { code:"AR", name:"Argentina", ar:"الأرجنتين", gmt:"GMT-3", tz:"ART3", offsetHours:-3 },
+  { code:"AU", name:"Australia", ar:"أستراليا", gmt:"GMT+10", tz:"AEST-10AEDT,M10.1.0,M4.1.0/3", offsetHours:10 },
+  { code:"AT", name:"Austria", ar:"النمسا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"BH", name:"Bahrain", ar:"البحرين", gmt:"GMT+3", tz:"AST-3", offsetHours:3 },
+  { code:"BD", name:"Bangladesh", ar:"بنغلاديش", gmt:"GMT+6", tz:"BST-6", offsetHours:6 },
+  { code:"BE", name:"Belgium", ar:"بلجيكا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"BR", name:"Brazil", ar:"البرازيل", gmt:"GMT-3", tz:"BRT3", offsetHours:-3 },
+  { code:"CA", name:"Canada", ar:"كندا", gmt:"GMT-5", tz:"EST5EDT,M3.2.0,M11.1.0", offsetHours:-5 },
+  { code:"CL", name:"Chile", ar:"تشيلي", gmt:"GMT-4", tz:"CLT4", offsetHours:-4 },
+  { code:"CN", name:"China", ar:"الصين", gmt:"GMT+8", tz:"CST-8", offsetHours:8 },
+  { code:"CO", name:"Colombia", ar:"كولومبيا", gmt:"GMT-5", tz:"COT5", offsetHours:-5 },
+  { code:"DK", name:"Denmark", ar:"الدنمارك", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"EG", name:"Egypt", ar:"مصر", gmt:"GMT+2", tz:"EET-2EEST,M4.5.5/0,M10.5.4/24", offsetHours:2 },
+  { code:"FI", name:"Finland", ar:"فنلندا", gmt:"GMT+2", tz:"EET-2EEST,M3.5.0/3,M10.5.0/4", offsetHours:2 },
+  { code:"FR", name:"France", ar:"فرنسا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"DE", name:"Germany", ar:"ألمانيا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"GH", name:"Ghana", ar:"غانا", gmt:"GMT+0", tz:"GMT0", offsetHours:0 },
+  { code:"GR", name:"Greece", ar:"اليونان", gmt:"GMT+2", tz:"EET-2EEST,M3.5.0/3,M10.5.0/4", offsetHours:2 },
+  { code:"IN", name:"India", ar:"الهند", gmt:"GMT+5:30", tz:"IST-5:30", offsetHours:5.5 },
+  { code:"ID", name:"Indonesia", ar:"إندونيسيا", gmt:"GMT+7", tz:"WIB-7", offsetHours:7 },
+  { code:"IQ", name:"Iraq", ar:"العراق", gmt:"GMT+3", tz:"AST-3", offsetHours:3 },
+  { code:"IE", name:"Ireland", ar:"أيرلندا", gmt:"GMT+0", tz:"GMT0BST,M3.5.0/1,M10.5.0", offsetHours:0 },
+  { code:"IT", name:"Italy", ar:"إيطاليا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"JP", name:"Japan", ar:"اليابان", gmt:"GMT+9", tz:"JST-9", offsetHours:9 },
+  { code:"JO", name:"Jordan", ar:"الأردن", gmt:"GMT+3", tz:"EET-3", offsetHours:3 },
+  { code:"KE", name:"Kenya", ar:"كينيا", gmt:"GMT+3", tz:"EAT-3", offsetHours:3 },
+  { code:"KW", name:"Kuwait", ar:"الكويت", gmt:"GMT+3", tz:"AST-3", offsetHours:3 },
+  { code:"LB", name:"Lebanon", ar:"لبنان", gmt:"GMT+2", tz:"EET-2EEST,M3.5.0/0,M10.5.0/0", offsetHours:2 },
+  { code:"MY", name:"Malaysia", ar:"ماليزيا", gmt:"GMT+8", tz:"MYT-8", offsetHours:8 },
+  { code:"MX", name:"Mexico", ar:"المكسيك", gmt:"GMT-6", tz:"CST6", offsetHours:-6 },
+  { code:"MA", name:"Morocco", ar:"المغرب", gmt:"GMT+1", tz:"WET-1", offsetHours:1 },
+  { code:"NP", name:"Nepal", ar:"نيبال", gmt:"GMT+5:45", tz:"NPT-5:45", offsetHours:5.75 },
+  { code:"NL", name:"Netherlands", ar:"هولندا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"NZ", name:"New Zealand", ar:"نيوزيلندا", gmt:"GMT+12", tz:"NZST-12NZDT,M9.5.0,M4.1.0/3", offsetHours:12 },
+  { code:"NG", name:"Nigeria", ar:"نيجيريا", gmt:"GMT+1", tz:"WAT-1", offsetHours:1 },
+  { code:"NO", name:"Norway", ar:"النرويج", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"OM", name:"Oman", ar:"عُمان", gmt:"GMT+4", tz:"GST-4", offsetHours:4 },
+  { code:"PK", name:"Pakistan", ar:"باكستان", gmt:"GMT+5", tz:"PKT-5", offsetHours:5 },
+  { code:"PH", name:"Philippines", ar:"الفلبين", gmt:"GMT+8", tz:"PHT-8", offsetHours:8 },
+  { code:"PL", name:"Poland", ar:"بولندا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"PT", name:"Portugal", ar:"البرتغال", gmt:"GMT+0", tz:"WET0WEST,M3.5.0/1,M10.5.0", offsetHours:0 },
+  { code:"QA", name:"Qatar", ar:"قطر", gmt:"GMT+3", tz:"AST-3", offsetHours:3 },
+  { code:"RO", name:"Romania", ar:"رومانيا", gmt:"GMT+2", tz:"EET-2EEST,M3.5.0/3,M10.5.0/4", offsetHours:2 },
+  { code:"RU", name:"Russia", ar:"روسيا", gmt:"GMT+3", tz:"MSK-3", offsetHours:3 },
+  { code:"SA", name:"Saudi Arabia", ar:"المملكة العربية السعودية", gmt:"GMT+3", tz:"AST-3", offsetHours:3 },
+  { code:"SG", name:"Singapore", ar:"سنغافورة", gmt:"GMT+8", tz:"SGT-8", offsetHours:8 },
+  { code:"ZA", name:"South Africa", ar:"جنوب أفريقيا", gmt:"GMT+2", tz:"SAST-2", offsetHours:2 },
+  { code:"KR", name:"South Korea", ar:"كوريا الجنوبية", gmt:"GMT+9", tz:"KST-9", offsetHours:9 },
+  { code:"ES", name:"Spain", ar:"إسبانيا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"LK", name:"Sri Lanka", ar:"سريلانكا", gmt:"GMT+5:30", tz:"IST-5:30", offsetHours:5.5 },
+  { code:"SE", name:"Sweden", ar:"السويد", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"CH", name:"Switzerland", ar:"سويسرا", gmt:"GMT+1", tz:"CET-1CEST,M3.5.0,M10.5.0/3", offsetHours:1 },
+  { code:"TH", name:"Thailand", ar:"تايلاند", gmt:"GMT+7", tz:"ICT-7", offsetHours:7 },
+  { code:"TN", name:"Tunisia", ar:"تونس", gmt:"GMT+1", tz:"CET-1", offsetHours:1 },
+  { code:"TR", name:"Turkey", ar:"تركيا", gmt:"GMT+3", tz:"TRT-3", offsetHours:3 },
+  { code:"AE", name:"United Arab Emirates", ar:"الإمارات العربية المتحدة", gmt:"GMT+4", tz:"GST-4", offsetHours:4 },
+  { code:"GB", name:"United Kingdom", ar:"المملكة المتحدة", gmt:"GMT+0", tz:"GMT0BST,M3.5.0/1,M10.5.0", offsetHours:0 },
+  { code:"US", name:"United States", ar:"الولايات المتحدة", gmt:"GMT-5", tz:"EST5EDT,M3.2.0,M11.1.0", offsetHours:-5 },
+  { code:"VN", name:"Vietnam", ar:"فيتنام", gmt:"GMT+7", tz:"ICT-7", offsetHours:7 }
+];
+let activeCountryCode = "";
+const getSelectedCountry = () => WORLD_COUNTRIES_60.find(c => c.code === activeCountryCode) || null;
+function formatCountryGmtPreview(c){
+  if(!c) return "";
+  const nowUtcMs = Date.now() + (c.offsetHours * 3600000);
+  const d = new Date(nowUtcMs);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+function renderCountryPanel(){
+  const sel = $("countrySelect");
+  const sdSel = $("sdCountrySelect");
+  const filter = ($("countrySearch") && $("countrySearch").value || "").trim().toLowerCase();
+  const isAr = (lang === "ar");
+  if($("countryPanelTitle")){
+    $("countryPanelTitle").textContent = isAr ? "🌍 اختر دولتك (الوقت المحلي وتوقيت GMT)" : "🌍 Select Your Country (Local Time & GMT)";
+  }
+  if($("countryPanelDesc")){
+    $("countryPanelDesc").textContent = isAr
+      ? "إجباري لكي يعرف Zhilly AI دولتك ووقتك المحلي وتوقيت GMT (60 دولة حول العالم — الدولة فقط بدون مدينة)."
+      : "Mandatory so Zhilly AI knows your country, local time, and GMT offset (60 countries worldwide — country only, no city).";
+  }
+  if($("countrySearch")){
+    $("countrySearch").placeholder = isAr ? "🔍 ابحث عن الدولة..." : "🔍 Search country...";
+  }
+  if($("sdCountryLabel")){
+    $("sdCountryLabel").textContent = isAr ? "🌍 دولة التوقيت المحلي و GMT:" : "🌍 Country Local Time & GMT:";
+  }
+
+  const buildOpts = (useFilter) => {
+    const ph = isAr ? "-- اختر دولتك (إجباري) --" : "-- Choose your country (Required) --";
+    let h = `<option value="">${ph}</option>`;
+    WORLD_COUNTRIES_60.forEach(c => {
+      const label = isAr ? `${c.ar} (${c.name}) · ${c.gmt}` : `${c.name} (${c.gmt})`;
+      if(useFilter && filter && !c.name.toLowerCase().includes(filter) && !c.ar.includes(filter) && !c.gmt.toLowerCase().includes(filter)){
+        return;
+      }
+      h += `<option value="${c.code}"${c.code === activeCountryCode ? " selected" : ""}>${label}</option>`;
+    });
+    return h;
+  };
+  if(sel){ sel.innerHTML = buildOpts(true); sel.value = activeCountryCode; }
+  if(sdSel){ sdSel.innerHTML = buildOpts(false); sdSel.value = activeCountryCode; }
+
+  const chosen = getSelectedCountry();
+  const panel = $("countryTzPanel");
+  const badge = $("countryReqBadge");
+  const status = $("countryTzStatus");
+  if(chosen){
+    if(panel) panel.style.borderColor = "rgba(123,227,176,0.5)";
+    if(sel) sel.style.borderColor = "var(--ok)";
+    if(badge){
+      badge.textContent = isAr ? "✓ تم الحفظ" : "✓ COUNTRY SAVED";
+      badge.style.background = "rgba(123,227,176,0.18)";
+      badge.style.color = "var(--ok)";
+      badge.style.borderColor = "rgba(123,227,176,0.45)";
+    }
+    const prev = formatCountryGmtPreview(chosen);
+    if(status){
+      status.style.color = "var(--ok)";
+      status.style.borderInlineStartColor = "var(--ok)";
+      status.innerHTML = isAr
+        ? `✅ <b>الدولة المحددة:</b> ${chosen.ar} (${chosen.name}) · <b>${chosen.gmt}</b> · الساعة الآن: <b>${prev}</b> (<code>${chosen.tz}</code>)`
+        : `✅ <b>Selected Country:</b> ${chosen.name} · <b>${chosen.gmt}</b> · Current Local Time: <b>${prev}</b> (TZ: <code>${chosen.tz}</code>)`;
+    }
+  } else {
+    if(panel) panel.style.borderColor = "rgba(255,114,114,0.45)";
+    if(sel) sel.style.borderColor = "rgba(255,114,114,0.55)";
+    if(badge){
+      badge.textContent = isAr ? "⚠️ إجباري قبل الفلاش" : "⚠️ REQUIRED BEFORE FLASHING";
+      badge.style.background = "rgba(255,114,114,0.2)";
+      badge.style.color = "#ff8a8a";
+      badge.style.borderColor = "rgba(255,114,114,0.45)";
+    }
+    if(status){
+      status.style.color = "#ff9c9c";
+      status.style.borderInlineStartColor = "#ff7272";
+      status.innerHTML = isAr
+        ? `⚠️ <b>إجباري:</b> يرجى اختيار دولتك أعلاه قبل الفلاش لكي يعرف Zhilly وقتك المحلي وتوقيت GMT بدقة.`
+        : `⚠️ <b>Required:</b> Select your country above before flashing so Zhilly's local clock and GMT time work accurately.`;
+    }
+  }
+}
+function setSelectedCountry(code){
+  activeCountryCode = WORLD_COUNTRIES_60.some(c => c.code === code) ? code : "";
+  renderCountryPanel();
+  if(activeCountryCode){
+    const b = $("flashStatusBanner");
+    if(b && b.dataset.errType === "country"){
+      b.style.display = "none";
+      __lastFlashBannerSig = "";
+    }
+  }
+}
+if($("countrySelect")) $("countrySelect").addEventListener("change", e => setSelectedCountry(e.target.value));
+if($("sdCountrySelect")) $("sdCountrySelect").addEventListener("change", e => setSelectedCountry(e.target.value));
+if($("countrySearch")) $("countrySearch").addEventListener("input", () => renderCountryPanel());
+
+const BOOT=[["0x0",0,"bin/bootloader.bin","d_boot"],["0x8000",32768,"bin/partition-table.bin","d_part"],["0x10000",65536,"bin/ota_data_initial.bin","d_ota"]];
+const APP=(f,d)=>["0x20000",131072,"bin/"+f,d];
+const OTA1=(f,d)=>["0x4E0000",5111808,"bin/"+f,d];
+const BLANK1=["0x4E0000",5111808,"bin/blank_4k.bin","d_blank"];
+const BLANK2=["0x990000",10027008,"bin/blank_4k.bin","d_blank"];
+const ZH2=()=>["0x990000",10027008,"bin/zhilly_"+zhillyLangSuffix()+".bin","d_zhilly2"];
+const ASSETS=["0xCA0000",13238272,"bin/expression_assets.bin","d_assets"];
+const FW=[
+  {id:"flipbruce",title:"1. Bruce with Flipper (Dual-Boot) v1.1.1.3",desc:"f_bf",manifest:"manifest_flipper_bruce.json",rec:true,rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),OTA1("bruce.bin","d_bruce1"),BLANK2]},
+  {id:"bruce_zhilly",title:"2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.3",desc:"f_bz",manifest:"manifest_dualboot.json",rows:()=>[...BOOT,APP("bruce.bin","d_bruce"),BLANK1,ZH2(),ASSETS]},
+  {id:"flipper_zhilly",title:"3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.3",desc:"f_fz",manifest:"manifest_flipper_ai.json",rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),BLANK1,ZH2(),ASSETS]}
+];
+let current=FW[0];
+
+function getManifestUrl(f){
+  if(!f) return "manifest_flipper_bruce.json";
+  const sfx = zhillyLangSuffix();
+  if(f.id === "bruce_zhilly") return "manifest_dualboot_" + sfx + ".json";
+  if(f.id === "flipper_zhilly") return "manifest_flipper_ai_" + sfx + ".json";
+  return f.manifest;
+}
+
+function makeManifestObj(name, ota0Bin, hasBruceOta1, zhLangSfx){
+  const parts = [
+    { "path": "bin/bootloader.bin", "offset": 0 },
+    { "path": "bin/partition-table.bin", "offset": 32768 },
+    { "path": "bin/ota_data_initial.bin", "offset": 65536 },
+    { "path": "bin/" + ota0Bin, "offset": 131072 }
+  ];
+  if(hasBruceOta1){
+    parts.push({ "path": "bin/bruce.bin", "offset": 5111808 });
+    parts.push({ "path": "bin/blank_4k.bin", "offset": 10027008 });
+  } else {
+    parts.push({ "path": "bin/blank_4k.bin", "offset": 5111808 });
+    parts.push({ "path": "bin/zhilly_" + zhLangSfx + ".bin", "offset": 10027008 });
+    parts.push({ "path": "bin/expression_assets.bin", "offset": 13238272 });
+  }
+  return { "name": name, "version": "1.1.1.3", "new_install_prompt_erase": false, "builds": [{ "chipFamily": "ESP32-S3", "parts": parts }] };
+}
+
+const MANIFESTS_DATA = {
+  "manifest_flipper_bruce.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Bruce) v1.1.1.3", "flipper.bin", true, null),
+  "manifest_dualboot.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.3", "bruce.bin", false, "en"),
+  "manifest_dualboot_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.3", "bruce.bin", false, "en"),
+  "manifest_dualboot_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI AR) v1.1.1.3", "bruce.bin", false, "ar"),
+  "manifest_dualboot_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI TR) v1.1.1.3", "bruce.bin", false, "tr"),
+  "manifest_flipper_ai.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.3", "flipper.bin", false, "en"),
+  "manifest_flipper_ai_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.3", "flipper.bin", false, "en"),
+  "manifest_flipper_ai_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI AR) v1.1.1.3", "flipper.bin", false, "ar"),
+  "manifest_flipper_ai_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI TR) v1.1.1.3", "flipper.bin", false, "tr")
+};
+window.MANIFESTS_DATA = MANIFESTS_DATA;
+
+function setZhillyLanguage(code){
+  activeZhillyLang = code;
+  const btnAr = document.getElementById("btnLangAr");
+  const btnTr = document.getElementById("btnLangTr");
+  const btnEn = document.getElementById("btnLangEn");
+  const st = document.getElementById("zhLangStatus");
+  if(btnAr) btnAr.className = "btn" + (code==="ar-SA" ? " active" : "");
+  if(btnTr) btnTr.className = "btn" + (code==="tr-TR" ? " active" : "");
+  if(btnEn) btnEn.className = "btn" + (code==="en-US" ? " active" : "");
+  
+  if(btnAr) btnAr.style.borderColor = code==="ar-SA" ? "var(--ok)" : "var(--line2)";
+  if(btnTr) btnTr.style.borderColor = code==="tr-TR" ? "var(--ok)" : "var(--line2)";
+  if(btnEn) btnEn.style.borderColor = code==="en-US" ? "var(--ok)" : "var(--line2)";
+
+  if(btnAr) btnAr.style.background = code==="ar-SA" ? "rgba(123,227,176,0.15)" : "rgba(255,255,255,0.05)";
+  if(btnTr) btnTr.style.background = code==="tr-TR" ? "rgba(123,227,176,0.15)" : "rgba(255,255,255,0.05)";
+  if(btnEn) btnEn.style.background = code==="en-US" ? "rgba(123,227,176,0.15)" : "rgba(255,255,255,0.05)";
+
+  if(st){
+    if(code === "ar-SA"){
+      st.innerHTML = `✅ <b>اللغة المقفلة: العربية (ar-SA) فقط.</b> يتم تثبيت نسخة عربية خالصة (<code>zhilly_ar.bin</code>) — المحادثة الصوتية وواجهة إعداد Wi-Fi والتنبيهات كلها بالعربية فقط (بدون صينية أو تبديل).`;
+      st.style.borderInlineStartColor = "var(--ok)";
+    } else if(code === "tr-TR"){
+      st.innerHTML = `✅ <b>Kilitli Dil: Sadece Türkçe (tr-TR).</b> Özel Türkçe sürümü yüklenir (<code>zhilly_tr.bin</code>) — AI sohbet, Wi-Fi kurulum ekranı ve sesli uyarılar tamamen Türkçedir.`;
+      st.style.borderInlineStartColor = "var(--cyan)";
+    } else {
+      st.innerHTML = `✅ <b>Locked Language: English (en-US) Only.</b> Flashes dedicated English firmware (<code>zhilly_en.bin</code>) — AI chat, Wi-Fi setup portal, and voice prompts are strictly English (no Chinese, no switching).`;
+      st.style.borderInlineStartColor = "var(--warning)";
+    }
+  }
+  renderOptions();
+  renderFlash();
+}
+
+function selectFW(id){
+  const match = FW.find(f => f.id === id);
+  if(match) select(match);
+}
+window.selectFW = selectFW;
+
+function renderOptions(){
+  try {
+    const box=$("options");
+    if(!box) return;
+    let html = "";
+    FW.forEach(f=>{
+      const isSel = (current && current.id === f.id);
+      const rows = f.rows();
+      const mf = getManifestUrl(f);
+      html += `<label class="opt${isSel ? ' sel' : ''}" onclick="selectFW('${f.id}')" data-id="${f.id}">
+        <input type="radio" name="fw" value="${f.id}"${isSel ? ' checked' : ''} onchange="selectFW('${f.id}')">
+        <b>${f.title}</b>${f.rec ? `<span class="tag">${t("def")}</span>` : ""}
+        <span class="d">${t(f.desc)}</span>
+        <em>${rows.length} ${t("parts")} · ${mf}</em>
+      </label>`;
+    });
+    box.innerHTML = html;
+  } catch(e){
+    console.error("renderOptions error:", e);
+  }
+}
+function renderFlash(){
+  if(!current) current = FW[0];
+  const mf = getManifestUrl(current);
+  const rows = current.rows();
+  const tEl = $("selTitle");
+  if(tEl) tEl.textContent=current.title;
+  const mEl = $("selManifest");
+  if(mEl) mEl.textContent=mf;
+  const btn = $("espWebInstallBtn");
+  if(btn) btn.setAttribute("manifest", mf);
+  const ob = $("offsetBody");
+  if(ob && rows) {
+    ob.innerHTML=rows.map(r=>
+      `<tr><td class="hex">${r[0]}</td><td class="dec">${r[1]}</td><td class="f">${r[2]}</td><td>${t(r[3])}</td></tr>`).join("");
+  }
+
+  // Strictly hide Zhilly AI Language & Country selectors when Option 1 (Flipper Zero with Bruce) is chosen.
+  // They must ONLY appear for Options 2 & 3 (which include Zhilly AI).
+  const zhPanel = $("zhillyLangPanel");
+  const ctPanel = $("countryTzPanel");
+  const sdCtWrap = $("sdCountryWrap");
+  if(current.id === "flipbruce") {
+    document.body.classList.add("sel-flipbruce");
+    if(zhPanel) {
+      zhPanel.style.display = "none";
+      zhPanel.style.setProperty("display", "none", "important");
+    }
+    if(ctPanel) {
+      ctPanel.style.display = "none";
+      ctPanel.style.setProperty("display", "none", "important");
+    }
+    if(sdCtWrap) sdCtWrap.style.display = "none";
+  } else {
+    document.body.classList.remove("sel-flipbruce");
+    if(zhPanel) {
+      zhPanel.style.display = "block";
+      zhPanel.style.setProperty("display", "block", "important");
+    }
+    if(ctPanel) {
+      ctPanel.style.display = "block";
+      ctPanel.style.setProperty("display", "block", "important");
+    }
+    if(sdCtWrap) sdCtWrap.style.display = "block";
+  }
+  renderCountryPanel();
+  bindInstallHooks();
+}
+
+let __lastFlashBannerSig = "";
+let __flashMon = { active:false, sawDialog:false, sawProgress:false, handled:false, preparingAt:0, timer:null };
+function showFlashBanner(kind, htmlMsg, errType){
+  const b = $("flashStatusBanner");
+  if(!b) return;
+  const sig = String(kind || "") + "|" + String(errType || "") + "|" + String(htmlMsg || "");
+  if(b.style.display === "block" && __lastFlashBannerSig === sig) return;
+  __lastFlashBannerSig = sig;
+  b.style.display = "block";
+  b.dataset.errType = errType || "";
+  if(kind === "ok"){
+    b.style.borderColor = "var(--ok)";
+    b.style.background = "rgba(123,227,176,0.14)";
+    b.style.color = "var(--ok)";
+  } else if(kind === "err"){
+    b.style.borderColor = "#ff7272";
+    b.style.background = "rgba(255,114,114,0.16)";
+    b.style.color = "#ffb4b4";
+  } else if(kind === "warn"){
+    b.style.borderColor = "var(--warning)";
+    b.style.background = "rgba(255,211,106,0.13)";
+    b.style.color = "#ffe299";
+  } else {
+    b.style.borderColor = "rgba(157,231,255,0.5)";
+    b.style.background = "rgba(157,231,255,0.08)";
+    b.style.color = "var(--cyan)";
+  }
+  b.innerHTML = htmlMsg;
+}
+function stopFlashMonitor(){
+  __flashMon.active = false;
+  __flashMon.preparingAt = 0;
+  if(__flashMon.timer){ clearInterval(__flashMon.timer); __flashMon.timer = null; }
+}
+function handleFlashSuccess(dlg){
+  if(__flashMon.handled) return;
+  __flashMon.handled = true;
+  stopFlashMonitor();
+  const isAr = (lang === "ar");
+  showFlashBanner("ok", isAr
+    ? "✅ <b>تم الفلاش بنجاح!</b> جاري نقلك تلقائياً إلى الخطوة الأخيرة (حزمة بطاقة SD)..."
+    : "✅ <b>Firmware flashed successfully!</b> Automatically taking you to the final step (SD Card Pack)..."
+  );
+  toast(isAr ? "✅ اكتمل الفلاش! انتقال تلقائي إلى بطاقة SD..." : "✅ Flash complete! Moving to SD Card step...");
+  setTimeout(() => {
+    try {
+      const targetDlg = dlg || document.querySelector("ewt-install-dialog");
+      if(targetDlg){
+        const sr = targetDlg.shadowRoot;
+        const closeBtn = sr && Array.from(sr.querySelectorAll("button, mwc-button, ha-button")).find(b =>
+          /close|next|done|ok|finish|skip/i.test((b.textContent || "") + " " + (b.getAttribute("dialogAction") || ""))
+        );
+        if(closeBtn) closeBtn.click();
+        else if(typeof targetDlg.close === "function") targetDlg.close();
+        else targetDlg.remove();
+      }
+    } catch(_e){}
+    go(4);
+    const ab = $("sdAutoBanner");
+    const card = $("sdToolCard");
+    if(ab){
+      ab.style.display = "block";
+      ab.innerHTML = isAr
+        ? "✅ <b>اكتمل الفلاش بنجاح!</b> أنت الآن في خطوة بطاقة SD النهائية — اضغط أدناه لتنزيل الحزمة شاملة إعدادات دولتك ووقتك المحلي."
+        : "✅ <b>Device flashed successfully!</b> You're now on the final SD Card step — click below to download your pack (includes your country's local time &amp; GMT config).";
+    }
+    if(card){
+      card.style.boxShadow = "0 0 0 2px var(--ok), 0 12px 32px rgba(123,227,176,0.22)";
+      setTimeout(() => { if(card) card.style.boxShadow = ""; }, 4500);
+    }
+  }, 1100);
+}
+function handleFlashError(reason){
+  if(__flashMon.handled) return;
+  __flashMon.handled = true;
+  stopFlashMonitor();
+  const isAr = (lang === "ar");
+  const safeReason = reason ? String(reason).slice(0, 180) : "";
+  showFlashBanner("err", (isAr
+    ? "❌ <b>حدث خطأ ما أثناء الفلاش.</b> تأكد من توصيل كابل USB-C، واضغط زر BOOT عند التوصيل إذا لزم، ثم أعد المحاولة."
+    : "❌ <b>Something went wrong during flashing.</b> Please check your USB-C cable, try holding BOOT while plugging in, and click Connect &amp; Flash again."
+  ) + (safeReason ? `<br><small style="opacity:0.85;">(${safeReason})</small>` : ""), "flash");
+  toast(isAr ? "❌ حدث خطأ أثناء الفلاش — تحقق من الاتصال" : "❌ Something went wrong during flashing!");
+}
+function collectDialogText(root){
+  if(!root) return "";
+  const visited = new Set();
+  let out = "";
+  const walk = (node, depth) => {
+    if(!node || depth > 12 || visited.size > 800 || visited.has(node)) return;
+    visited.add(node);
+    try {
+      if(node.heading) out += " " + node.heading;
+      if(node.label) out += " " + node.label;
+      if(node.textContent) out += " " + node.textContent;
+      if(node.shadowRoot) walk(node.shadowRoot, depth + 1);
+      if(typeof node.assignedNodes === "function"){
+        const an = node.assignedNodes({flatten:true});
+        for(let i = 0; i < an.length && visited.size <= 800; i++) walk(an[i], depth + 1);
+      }
+      if(node.querySelectorAll){
+        const els = node.querySelectorAll("*");
+        for(let i = 0; i < els.length && visited.size <= 800; i++){
+          const el = els[i];
+          if(el.shadowRoot) walk(el.shadowRoot, depth + 1);
+          if(typeof el.assignedNodes === "function"){
+            const an = el.assignedNodes({flatten:true});
+            for(let j = 0; j < an.length && visited.size <= 800; j++) walk(an[j], depth + 1);
+          }
+        }
+      }
+    } catch(_e){}
+  };
+  walk(root, 0);
+  return out.replace(/\s+/g, " ").trim();
+}
+function inspectInstallDialog(dlg){
+  if(!dlg || !__flashMon.active || __flashMon.handled) return;
+  __flashMon.sawDialog = true;
+  const txt = collectDialogText(dlg);
+  if(!txt) return;
+  if(/\b(installation complete|successfully installed|install complete)\b/i.test(txt) && !/\b(failed|error)\b/i.test(txt)){
+    handleFlashSuccess(dlg);
+    return;
+  }
+  if(/\b(installation failed|failed to |unexpected error|could not open|could not connect|lost connection|timed out|not supported|error:)\b/i.test(txt)){
+    handleFlashError(txt);
+    return;
+  }
+  const isAr = (lang === "ar");
+  if(/\b(erasing|writing|installing firmware|\d+%)\b/i.test(txt)){
+    __flashMon.sawProgress = true;
+    __flashMon.preparingAt = 0;
+    showFlashBanner("info", isAr
+      ? "⏳ <b>جاري فلاش الفيرموير...</b> لا تفصل كابل USB-C حتى ينتهي."
+      : "⏳ <b>Flashing firmware to LilyGO T-Embed...</b> Please do not unplug the USB-C cable."
+    );
+  } else if(/\bpreparing installation\b/i.test(txt)){
+    if(!__flashMon.preparingAt) __flashMon.preparingAt = Date.now();
+    if(Date.now() - __flashMon.preparingAt >= 9000){
+      showFlashBanner("warn", isAr
+        ? "⚠️ <b>عالق على Preparing؟</b> اضغط باستمرار على زر <b>BOOT</b> أثناء إعادة توصيل USB-C لإدخال ESP32-S3 في وضع البوت لودر، أو استخدم ملفات <code>.bat</code> بالأسفل."
+        : "⚠️ <b>Stuck on Preparing?</b> Hold the <b>BOOT</b> button on your T-Embed while unplugging/replugging USB-C to enter ESP32-S3 download mode, or run the matching <code>.bat</code> flasher below."
+      );
+    } else {
+      showFlashBanner("info", isAr
+        ? "⏳ <b>جاري تجهيز التثبيت ومزامنة ESP32-S3...</b>"
+        : "⏳ <b>Preparing installation &amp; syncing ESP32-S3 bootloader...</b>"
+      );
+    }
+  }
+}
+function startFlashSession(){
+  stopFlashMonitor();
+  const isAr = (lang === "ar");
+  if(!("serial" in navigator)){
+    handleFlashError(isAr ? "المتصفح لا يدعم Web Serial" : "Web Serial API unavailable");
+    return;
+  }
+  __flashMon.active = true;
+  __flashMon.sawDialog = false;
+  __flashMon.sawProgress = false;
+  __flashMon.handled = false;
+  __flashMon.preparingAt = 0;
+  __flashMon.startedAt = Date.now();
+  showFlashBanner("info", isAr
+    ? "⚡ <b>اختر منفذ الجهاز من نافذة المتصفح...</b> سيتم نقلك تلقائياً لبطاقة SD فور اكتمال الفلاش."
+    : "⚡ <b>Select your board's serial port in the browser popup...</b> You will move automatically to the SD card step once flashing finishes."
+  );
+  const scan = () => {
+    if(!__flashMon.active || __flashMon.handled) return;
+    const dlg = document.querySelector("ewt-install-dialog");
+    if(dlg){
+      inspectInstallDialog(dlg);
+    } else if(__flashMon.sawDialog && __flashMon.sawProgress){
+      handleFlashError(isAr ? "توقفت عملية الفلاش قبل الاكتمال" : "Flashing dialog closed before installation completed");
+    } else if(__flashMon.sawDialog && (Date.now() - __flashMon.startedAt > 1500)){
+      stopFlashMonitor();
+    }
+  };
+  __flashMon.timer = setInterval(scan, 450);
+}
+function bindInstallHooks(){
+  const btn = $("espWebInstallBtn");
+  if(!btn || btn.dataset.hooked === "1") return;
+  btn.dataset.hooked = "1";
+  btn.addEventListener("state-changed", (ev) => {
+    const st = ev && ev.detail && ev.detail.state;
+    if(st === "finished" || st === "installed"){
+      handleFlashSuccess(document.querySelector("ewt-install-dialog"));
+    } else if(st === "error" || st === "failed"){
+      handleFlashError((ev.detail && (ev.detail.message || ev.detail.error)) || "Flashing failed");
+    }
+  });
+}
+window.addEventListener("unhandledrejection", (ev) => {
+  if(!__flashMon.active || __flashMon.handled) return;
+  const msg = (ev && ev.reason && (ev.reason.message || String(ev.reason))) || "";
+  if(/no port selected|NotFoundError/i.test(msg)){
+    stopFlashMonitor();
+    const isAr = (lang === "ar");
+    showFlashBanner("info", isAr
+      ? "ℹ️ لم يتم اختيار منفذ سيريال. اضغط زر الاتصال والفلاش عند الجاهزية."
+      : "ℹ️ No serial port selected. Click Connect &amp; Flash Device when ready."
+    );
+  }
+});
+function select(f){
+  current=f;
+  const mf = getManifestUrl(f);
+  if(current.id === "flipbruce") {
+    document.body.classList.add("sel-flipbruce");
+  } else {
+    document.body.classList.remove("sel-flipbruce");
+  }
+  document.querySelectorAll(".opt").forEach(o=>{
+    const inp = o.querySelector("input");
+    const isThis = (inp && inp.value===f.id) || (o.dataset && o.dataset.id===f.id);
+    o.classList.toggle("sel", isThis);
+    if(inp) inp.checked = isThis;
+  });
+  const container=document.querySelector(".flashbox");
+  if(container){
+    container.innerHTML=`
+      <esp-web-install-button id="espWebInstallBtn" manifest="${mf}">
+        <button slot="activate" class="official-flash-btn">
+          <span class="btn-icon">⚡</span>
+          <span data-i="flashBtn">${t("flashBtn")}</span>
+        </button>
+        <span slot="unsupported" data-i="unsup">${t("unsup")}</span>
+      </esp-web-install-button>
+    `;
+  }
+  renderFlash();
+}
+
+// Initial render to guarantee cards always appear
+renderOptions();
+renderFlash();
+
+document.addEventListener("click", function(e){
+  const btn = e.target.closest && e.target.closest(".official-flash-btn, #espWebInstallBtn");
+  if(!btn) return;
+  if(location.protocol === "file:"){
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    alert(lang === "ar" ? 
+      "⚠️ تنبيه مهم:\n\nتمنع متصفحات Chrome و Edge تحميل ملفات التعريف (Manifest) وبث الفيرموير عند فتح الصفحة مباشرة بصيغة file:/// بسبب قيود أمان CORS.\n\nيرجى تشغيل START_WEB_FLASHER.bat وسيقوم تلقائياً بفتح الصفحة عبر http://localhost:8000 ليعمل الفلاش بنجاح 100%." :
+      "⚠️ Important Notice:\n\nChrome and Edge block manifest downloads and Web Serial firmware streaming on file:/// URLs due to CORS security restrictions.\n\nPlease run START_WEB_FLASHER.bat which starts the local server and opens http://localhost:8000 so the flasher works 100% successfully."
+    );
+    return;
+  }
+  if(current && current.id !== "flipbruce" && !getSelectedCountry()){
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const isAr = (lang === "ar");
+    const panel = $("countryTzPanel");
+    if(panel){
+      panel.scrollIntoView({ behavior:"smooth", block:"center" });
+      panel.style.boxShadow = "0 0 0 2px #ff7272, 0 8px 24px rgba(255,114,114,0.28)";
+      setTimeout(() => { if(panel) panel.style.boxShadow = ""; }, 2500);
+    }
+    if($("countrySelect")) $("countrySelect").focus();
+    showFlashBanner("err", isAr
+      ? "⚠️ <b>مطلوب اختيار دولتك أولاً!</b> اختر الدولة التي تتواجد بها من قائمة الـ 60 دولة أعلاه ليتم ضبط التوقيت المحلي و GMT قبل الفلاش."
+      : "⚠️ <b>Please select your country first!</b> Choosing your country from the 60-country list above is mandatory so Zhilly knows your local time &amp; GMT.", "country"
+    );
+    toast(isAr ? "⚠️ اختر دولتك أولاً!" : "⚠️ Choose your country first (required for local time & GMT)!");
+    return;
+  }
+  startFlashSession();
+}, true);
+
+/* =========================================================
+   PROTOCOL BANNER
+========================================================= */
+function renderBanner(){
+  const b=$("banner");
+  if(location.protocol==="file:"){
+    if(b.dataset.dismissed==="1")return;
+    b.className="warn";
+    b.innerHTML=`<div>${t("bWarn")}</div><button type="button" id="bx" aria-label="Dismiss">×</button>`;
+    $("bx").onclick=()=>{b.dataset.dismissed="1";b.style.display="none";};
+  }else{
+    b.className="ok";b.textContent=t("bOk");
+  }
+}
+
+/* =========================================================
+   WIZARD (page navigation + stepper)
+========================================================= */
+const PAGES=["pageWelcome","pageHW","pageFW","pageFlash","pageTools"];
+let step=0,maxStep=0;
+
+function showPage(id,back){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  const p=$(id);if(!p)return;
+  p.classList.toggle("back",!!back);
+  p.classList.add("active");
+  scrollTo({top:0,behavior:"smooth"});
+}
+function drawStepper(){
+  const s=$("stepper");s.hidden=step===0;s.innerHTML="";
+  for(let n=1;n<=4;n++){
+    const b=document.createElement("button");
+    b.type="button";b.className="dot"+(n===step?" now":n<=maxStep?" done":"");
+    b.innerHTML=`<i>${n<step?"✓":n}</i>${t("stp"+n)}`;
+    if(n<=maxStep&&n!==step)b.onclick=()=>go(n);
+    s.appendChild(b);
+  }
+}
+function go(n){
+  const back=n<step;
+  step=n;if(n>maxStep)maxStep=n;
+  showPage(PAGES[n],back);
+  drawStepper();
+}
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(Number(b.dataset.go))));
+
+/* =========================================================
+   SERIAL MONITOR
+========================================================= */
+const modal=$("modal"),logEl=$("log"),mstat=$("mstat");
+let port=null,reader=null,keepReading=false,readDone=null,connState=false;
+function setConn(on){
+  connState=on;
+  $("mConnect").disabled=on;$("mDisconnect").disabled=!on;
+  mstat.textContent=on?t("connected"):t("disconnected");
+  mstat.style.color=on?"var(--ok)":"var(--muted)";
+}
+function append(txt){
+  const atEnd=logEl.scrollTop+logEl.clientHeight>=logEl.scrollHeight-30;
+  logEl.textContent+=txt;
+  if(logEl.textContent.length>200000)logEl.textContent=logEl.textContent.slice(-150000);
+  if(atEnd)logEl.scrollTop=logEl.scrollHeight;
+}
+async function connectMon(){
+  if(!("serial" in navigator)){append(t("noSerial"));return;}
+  try{
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:115200});
+    setConn(true);keepReading=true;append(t("logConn"));readLoop();
+  }catch(e){append("Connect failed: "+e.message+"\n");port=null;setConn(false);}
+}
+function readLoop(){
+  const dec=new TextDecoder();
+  readDone=(async()=>{
+    while(port&&port.readable&&keepReading){
+      reader=port.readable.getReader();
+      try{
+        while(true){const r=await reader.read();if(r.done)break;if(r.value)append(dec.decode(r.value,{stream:true}));}
+      }catch(e){append("\n[read error: "+e.message+"]\n");}
+      finally{reader.releaseLock();}
+    }
+  })();
+}
+async function disconnectMon(){
+  keepReading=false;
+  try{if(reader)await reader.cancel();}catch(e){}
+  try{if(readDone)await readDone;}catch(e){}
+  try{if(port)await port.close();}catch(e){}
+  port=null;reader=null;setConn(false);append(t("logDisc"));
+}
+$("openMon").onclick=()=>modal.classList.add("show");
+$("mConnect").onclick=connectMon;
+$("mDisconnect").onclick=disconnectMon;
+$("mClear").onclick=()=>{logEl.textContent="";};
+$("mClose").onclick=async()=>{if(port)await disconnectMon();modal.classList.remove("show");};
+
+/* =========================================================
+   SD CARD PACK
+========================================================= */
+$("makeZip").onclick=async function(){
+  const btn=this;
+  if(typeof JSZip==="undefined"){toast(t("zipFail"));return;}
+  btn.disabled=true;
+
+  const chosenId = (current && current.id) || "flipbruce";
+  const langSfx = zhillyLangSuffix();
+  const chosenCountry = getSelectedCountry();
+  if(chosenId !== "flipbruce" && !chosenCountry){
+    btn.disabled = false;
+    toast(lang === "ar" ? "⚠️ يرجى اختيار دولتك أولاً لضبط التوقيت المحلي و GMT!" : "⚠️ Please choose your country first (required for local time & GMT)!");
+    if($("sdCountrySelect")) $("sdCountrySelect").focus();
+    return;
+  }
+
+  // Strict Single-Language Zhilly AI v1.0.9 prompt (matches compiled zhilly_en/ar/tr.bin)
+  let sysPrompt = "You are Zhilly AI developed by siberbaba. Communicate ONLY in English (en-US). Never respond in Chinese or switch languages.";
+  if (activeZhillyLang === "ar-SA") {
+    sysPrompt = "أنت مساعد ذكي اسمه Zhilly AI من تطوير siberbaba. تحدث باللغة العربية فقط دائماً ولا تستخدم الصينية أبداً.";
+  } else if (activeZhillyLang === "tr-TR") {
+    sysPrompt = "Sen siberbaba tarafından geliştirilen Zhilly AI asistansın. Sadece Türkçe konuş ve asla Çince veya başka dil kullanma.";
+  }
+
+  const zhillyConfig={
+    device:"lilygo_t_embed_cc1101_plus",
+    version:"1.1.1",
+    founders:{
+      zhilly_ai:"siberbaba (sacriphanius)",
+      bruce_firmware:"BruceDevices (T-Embed CC1101 Plus)"
+    },
+    repositories:{
+      zhilly_gitlab:"https://gitlab.com/sacriphanius/Zhilly",
+      zhilly_github:"https://github.com/siberbaba/siberbaba",
+      zhilly_topic:"https://github.com/topics/zhilly-firmware",
+      bruce_firmware:"https://github.com/brucedevices/firmware"
+    },
+    ai:{
+      console:"https://xiaozhi.me",
+      language:activeZhillyLang,
+      locked_single_language:true,
+      supported_languages:[activeZhillyLang],
+      voice_activation:true,
+      system_prompt:sysPrompt
+    },
+    timezone:{
+      country: chosenCountry ? chosenCountry.name : "UTC",
+      gmt: chosenCountry ? chosenCountry.gmt : "GMT+0",
+      tz_posix: chosenCountry ? chosenCountry.tz : "UTC0",
+      utc_offset_hours: chosenCountry ? chosenCountry.offsetHours : 0
+    },
+    subghz:{
+      default_freq:433920000,
+      module:"cc1101"
+    },
+    display:{
+      brightness:75,
+      rotation:0,
+      swap_xy:true,
+      mirror_x:true,
+      mirror_y:false,
+      theme:"dark_cyber"
+    },
+    led:{
+      brightness:32,
+      low_brightness:4,
+      r:0,
+      g:0,
+      b:255,
+      effect:0
+    }
+  };
+
+  // Real Bruce configuration for ST7789 320x170 LCD (rot:3)
+  const bruceConfig={
+    priColor:"A81F",
+    secColor:"FFFF",
+    bgColor:"0000",
+    rot:3,
+    dimmerSet:30,
+    bright:100,
+    ledBright:20,
+    ledColor:"A81F",
+    ledEffect:0,
+    colorInverted:0,
+    theme:0,
+    soundEnabled:1,
+    soundVolume:70,
+    rfModule:0,
+    rfFreq:433.92
+  };
+  const bruceTxt=JSON.stringify(bruceConfig,null,2);
+
+  // Fallback Flipper Zero root databases if local assets/flipper_sd_files.json cannot be fetched
+  const addFlipperFallback = (zipObj) => {
+    const flipperManifest = [
+      "Filetype: Flipper Resource Manifest",
+      "Version: 1",
+      "",
+      "Directory: /ext",
+      "Directory: /ext/subghz",
+      "Directory: /ext/subghz/assets",
+      "File: /ext/subghz/assets/setting_user",
+      "Directory: /ext/infrared",
+      "Directory: /ext/infrared/assets",
+      "Directory: /ext/nfc",
+      "Directory: /ext/nfc/assets",
+      "File: /ext/nfc/assets/mf_classic_dict.nfc",
+      "Directory: /ext/dolphin",
+      "Directory: /ext/badusb",
+      "Directory: /ext/apps",
+      "Directory: /ext/lfrfid",
+      "Directory: /ext/ibutton",
+      "Directory: /ext/u2f"
+    ].join("\r\n");
+    const subghzSettingUser = [
+      "Filetype: Flipper SubGhz Setting File",
+      "Version: 1",
+      "Frequency: 300000000",
+      "Frequency: 310000000",
+      "Frequency: 315000000",
+      "Frequency: 390000000",
+      "Frequency: 433075000",
+      "Frequency: 433920000",
+      "Frequency: 434420000",
+      "Frequency: 434775000",
+      "Frequency: 868350000",
+      "Frequency: 915000000"
+    ].join("\r\n");
+    const nfcDict = [
+      "# Flipper Zero NFC Standard Dictionary Keys",
+      "FFFFFFFFFFFF",
+      "A0A1A2A3A4A5",
+      "B0B1B2B3B4B5",
+      "000000000000",
+      "D3F7D3F7D3F7",
+      "A0B0C0D0E0F0",
+      "A1B1C1D1E1F1"
+    ].join("\r\n");
+    const dolphinManifest = [
+      "Filetype: Flipper Animation Manifest",
+      "Version: 1",
+      "Name: Default Dolphin",
+      "Min level: 1",
+      "Max level: 3",
+      "Weight: 10"
+    ].join("\r\n");
+    zipObj.file("Manifest", flipperManifest);
+    zipObj.file("favorites.txt", "");
+    zipObj.folder("dolphin").file("Manifest.txt", dolphinManifest);
+    zipObj.folder("subghz").folder("assets").file("setting_user", subghzSettingUser);
+    zipObj.folder("nfc").folder("assets").file("mf_classic_dict.nfc", nfcDict);
+    zipObj.folder("infrared").folder("assets").file("universal_remotes.txt", "# Universal Remote Database (TV, Audio, AC, Projectors)\r\n");
+    zipObj.folder("badusb").file("demo.txt", "REM LilyGO T-Embed BadUSB Payload v1.0.9\r\nDELAY 1000\r\nGUI r\r\nDELAY 500\r\nSTRING notepad\r\nENTER\r\nDELAY 500\r\nSTRING Flipper Zero MultiBoot v1.0.9 Active!\r\nENTER\r\n");
+    zipObj.folder("apps").file("README.txt", "Drop external Flipper .fap apps here.\r\n");
+    zipObj.folder("lfrfid").file("README.txt", "Drop 125kHz RFID .rfid files here.\r\n");
+    zipObj.folder("ibutton").file("README.txt", "Drop iButton .ibtn keys here.\r\n");
+    zipObj.folder("u2f").file("README.txt", "U2F certificate store.\r\n");
+  };
+
+  // Add real unzipped Flipper SD files directly into ZIP root (ONLY for Flipper combos, NO nested .zip, NO flipper/ wrapper, NO wifi.json)
+  const addUnzippedFlipperSdPack = async (zipObj) => {
+    let addedCount = 0;
+    // Fast Path 1: Pre-packed unzipped bundle (assets/flipper_sd_bundle.bin) containing all 1,966 Flipper database files
+    try {
+      const bundleResp = await fetch("assets/flipper_sd_bundle.bin");
+      if (bundleResp && bundleResp.ok) {
+        const buf = await bundleResp.arrayBuffer();
+        if (buf && buf.byteLength > 1000) {
+          await zipObj.loadAsync(buf);
+          const toRemove = [];
+          zipObj.forEach((relPath, entry) => {
+            const lower = relPath.toLowerCase();
+            if (lower.endsWith(".zip") || lower === "wifi.json" || lower.endsWith("/wifi.json") || lower.startsWith("flipper/")) {
+              toRemove.push(relPath);
+            } else if (!entry.dir) {
+              addedCount++;
+            }
+          });
+          toRemove.forEach(p => zipObj.remove(p));
+          if (addedCount >= 1900) {
+            return addedCount;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Path 2: Individual file fetch from assets/flipper_sd_files.json with per-file retry (never aborts on single failure)
+    try {
+      const idxResp = await fetch("assets/flipper_sd_files.json");
+      if (idxResp && idxResp.ok) {
+        const files = await idxResp.json();
+        if (Array.isArray(files) && files.length > 0) {
+          const cleanList = files.filter(rel => {
+            if (typeof rel !== "string" || !rel) return false;
+            const norm = rel.replace(/\\/g, "/").replace(/^\/+/, "");
+            const lower = norm.toLowerCase();
+            if (lower.endsWith(".zip") || lower === "wifi.json" || lower.endsWith("/wifi.json")) return false;
+            if (lower.startsWith("flipper/")) return false;
+            return true;
+          });
+          const BATCH = 12;
+          for (let i = 0; i < cleanList.length; i += BATCH) {
+            const slice = cleanList.slice(i, i + BATCH);
+            await Promise.all(slice.map(async rel => {
+              const norm = rel.replace(/\\/g, "/").replace(/^\/+/, "");
+              const encoded = norm.split("/").map(encodeURIComponent).join("/");
+              for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                  const r = await fetch("assets/flipper_sd/" + encoded);
+                  if (r && r.ok) {
+                    zipObj.file(norm, await r.blob());
+                    addedCount++;
+                    break;
+                  }
+                } catch (err) {}
+              }
+            }));
+          }
+        }
+      }
+    } catch (e) {}
+    if (addedCount === 0) {
+      addFlipperFallback(zipObj);
+    }
+    return addedCount;
+  };
+
+  try{
+    const z=new JSZip();
+    let zipName = "LilyGO_T-Embed_SD_Card_Pack_v1.1.1.3.zip";
+
+    if(chosenId === "flipbruce") {
+      // 1. FLIPPER ZERO WITH BRUCE (Unzipped Flipper SD at root + Bruce config; NO Zhilly, NO flipper/, NO wifi.json, NO .zip inside)
+      zipName = "LilyGO_T-Embed_SD_Card_Pack_Flipper_Bruce_v1.1.1.3.zip";
+      await addUnzippedFlipperSdPack(z);
+
+      // Bruce Config
+      z.file("bruce.conf", bruceTxt);
+      z.folder("bruce").file("bruce.conf", bruceTxt);
+
+      // Readme
+      z.file("README_SD_SETUP.txt", [
+        "=============================================================================",
+        "LILYGO T-EMBED CC1101 PLUS — SD CARD PACK (FLIPPER ZERO + BRUCE) v1.1.1.3",
+        "=============================================================================",
+        "1. Format microSD card as FAT32 (Allocation unit size: 4096 or default).",
+        "2. Extract ALL contents of this ZIP directly to the ROOT of the microSD card.",
+        "   Do NOT wrap in an extra folder; folders like 'subghz', 'nfc', 'dolphin', 'apps' must be in SD root.",
+        "3. Switching Between Firmwares (works with or without SD card):",
+        "   - In Flipper Zero: Press Center OK knob -> Select 'Switch to Bruce' (animated shark)!",
+        "   - In Bruce: Select 'Flipper Zero' in Main Menu",
+        "============================================================================="
+      ].join("\r\n"));
+
+      try {
+        const rFl = await fetch("bin/flipper.bin");
+        if(rFl.ok) z.folder("firmware").file("flipper.bin", await rFl.blob());
+      } catch(e){}
+      try {
+        const rBr = await fetch("bin/bruce.bin");
+        if(rBr.ok) z.folder("firmware").file("bruce.bin", await rBr.blob());
+      } catch(e){}
+
+    } else if(chosenId === "bruce_zhilly") {
+      // 2. BRUCE WITH ZHILLY AI (NO Flipper databases/SD files whatsoever, NO flipper/, NO wifi.json)
+      zipName = "LilyGO_T-Embed_SD_Card_Pack_Bruce_Zhilly_" + langSfx.toUpperCase() + "_v1.1.1.3.zip";
+
+      // Bruce Config
+      z.file("bruce.conf", bruceTxt);
+      z.folder("bruce").file("bruce.conf", bruceTxt);
+
+      // Zhilly AI Config
+      z.folder("zhilly").file("config.json", JSON.stringify(zhillyConfig, null, 2));
+
+      // Readme
+      z.file("README_SD_SETUP.txt", [
+        "=============================================================================",
+        "LILYGO T-EMBED CC1101 PLUS — SD CARD PACK (BRUCE + ZHILLY AI) v1.1.1.3",
+        "=============================================================================",
+        "1. Format microSD card as FAT32.",
+        "2. Extract ALL contents directly to the ROOT of the microSD card.",
+        "3. Zhilly AI locked single language: " + activeZhillyLang + " (binary: zhilly_" + langSfx + ".bin).",
+        "   Country Timezone & GMT: " + (chosenCountry ? (chosenCountry.name + " (" + chosenCountry.gmt + ", TZ: " + chosenCountry.tz + ")") : "UTC+0"),
+        "4. Switching Between Firmwares (works with or without SD card):",
+        "   - In Bruce: Select 'Zhilly AI' in Main Menu",
+        "   - In Zhilly AI: Rotate Encoder Left -> Open Zhilly Options -> Select 'Switch to Bruce'!",
+        "============================================================================="
+      ].join("\r\n"));
+
+      try {
+        const rBr = await fetch("bin/bruce.bin");
+        if(rBr.ok) z.folder("firmware").file("bruce.bin", await rBr.blob());
+      } catch(e){}
+      try {
+        const rZh = await fetch("bin/zhilly_" + langSfx + ".bin");
+        if(rZh.ok) z.folder("firmware").file("zhilly_" + langSfx + ".bin", await rZh.blob());
+      } catch(e){}
+
+    } else {
+      // 3. FLIPPER ZERO WITH ZHILLY AI (Unzipped Flipper SD at root + Zhilly config; NO Bruce, NO flipper/, NO wifi.json, NO .zip inside)
+      zipName = "LilyGO_T-Embed_SD_Card_Pack_Flipper_Zhilly_" + langSfx.toUpperCase() + "_v1.1.1.3.zip";
+      await addUnzippedFlipperSdPack(z);
+
+      // Zhilly AI Config
+      z.folder("zhilly").file("config.json", JSON.stringify(zhillyConfig, null, 2));
+
+      // Readme
+      z.file("README_SD_SETUP.txt", [
+        "=============================================================================",
+        "LILYGO T-EMBED CC1101 PLUS — SD CARD PACK (FLIPPER ZERO + ZHILLY AI) v1.1.1.3",
+        "=============================================================================",
+        "1. Format microSD card as FAT32.",
+        "2. Extract ALL contents directly to the ROOT of the microSD card.",
+        "   Do NOT wrap in an extra folder; folders like 'subghz', 'nfc', 'dolphin', 'apps' must be in SD root.",
+        "3. Zhilly AI locked single language: " + activeZhillyLang + " (binary: zhilly_" + langSfx + ".bin).",
+        "   Country Timezone & GMT: " + (chosenCountry ? (chosenCountry.name + " (" + chosenCountry.gmt + ", TZ: " + chosenCountry.tz + ")") : "UTC+0"),
+        "4. Switching Between Firmwares (works with or without SD card):",
+        "   - In Flipper Zero: Press Center OK knob -> Select 'Switch to Zhilly AI' (animated eyes)!",
+        "   - In Zhilly AI: Rotate Encoder Left -> Open Zhilly Options -> Select 'Switch to Flipper Zero'!",
+        "============================================================================="
+      ].join("\r\n"));
+
+      try {
+        const rFl = await fetch("bin/flipper.bin");
+        if(rFl.ok) z.folder("firmware").file("flipper.bin", await rFl.blob());
+      } catch(e){}
+      try {
+        const rZh = await fetch("bin/zhilly_" + langSfx + ".bin");
+        if(rZh.ok) z.folder("firmware").file("zhilly_" + langSfx + ".bin", await rZh.blob());
+      } catch(e){}
+    }
+
+    const blob=await z.generateAsync({type:"blob"});
+
+    // Safe multi-engine download (FileSaver or native object URL)
+    if(typeof saveAs==="function"){
+      saveAs(blob, zipName);
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=zipName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+    }
+    toast(t("zipOk") + " (" + zipName + ")");
+  }catch(e){toast("ZIP failed: "+e.message);}
+  btn.disabled=false;
+};
+
+/* =========================================================
+   SETTINGS MENU + LANGUAGE APPLY
+========================================================= */
+function applyLang(next){
+  lang=next==="en"?"en":"ar";
+  const h=document.documentElement;h.lang=lang;h.dir=lang==="en"?"ltr":"rtl";
+  document.body.classList.toggle("lang-en",lang==="en");
+  document.querySelectorAll("[data-i]").forEach(el=>{el.textContent=t(el.dataset.i);});
+  const nl=$("newsList"),nb=$("newsButton");
+  if(nl){
+    nl.innerHTML = lang==="ar" ? `
+      <li><b>إصلاح الشاشة الرمادية وإعادة التشغيل كل 3 ثوانٍ وانقطاع الصوت (v1.1.1.3):</b> منع الاستدعاء المتكرر لـ <code>Board::GetInstance()</code> أثناء بناء <code>EmoteDisplay</code> (الذي كان يسبب انهيار <code>__cxa_guard_acquire</code> وإعادة تشغيل فورية بدون وجه أو صوت)، مع تأجيل <code>esp_sntp_init()</code> لما بعد تهيئة الشبكة وإضاءة الخلفية بعد جاهزية الشاشة.</li>
+      <li><b>إصلاح التجميد والتعطّل عند مرحلة Preparing (v1.1.1.3):</b> إزالة حلقة المراقبة التي كانت تجمّد المتصفح أثناء التحضير، مع إرشاد فوري لزر BOOT إذا تأخر الاتصال السيريالي لـ ESP32-S3.</li>
+      <li><b>توقيت محلي إجباري لـ 60 دولة حول العالم (بدون مدن):</b> اختر دولتك من 60 دولة قبل الفلاش لضبط التوقيت المحلي وتوقيت GMT والساعة المحلية على الشاشة الرئيسية لـ Zhilly تلقائياً.</li>
+      <li><b>انتقال تلقائي إلى حزمة بطاقة SD بعد الفلاش:</b> بمجرد اكتمال الفلاش ينتقل الفلاشر تلقائياً إلى خطوة بطاقة SD النهائية، وإذا حدث خطأ يعرض تنبيهاً واضحاً ويبقى في خطوة الفلاش.</li>
+      <li><b>موجة الاستماع (Memo Animation) وجميع تعابير العيون:</b> استعادة حركة الاستماع الأصلية بدون أي نص خلفها، وتفعيل جميع المشاعر العشرين (سعيد، حزين، غاضب، متفاجئ، يفكر، يضحك، وغيرها) مع الخطوط الأصلية للإنجليزية والتركية وخط عربي مترابط.</li>
+      <li><b>قائمة خيارات Zhilly والتنشيط السحابي 6 أرقام:</b> تدوير البكرة لليسار لفتح <b>Zhilly Options</b> (السطوع، التبديل إلى Flipper Zero أو Bruce، إعادة ضبط المصنع) مع دعم رمز التفعيل الحقيقي في <code>xiaozhi.me</code>.</li>
+      <li><b>تنظيف شاشة Flipper Zero:</b> التبديل بين الأنظمة في القائمة الرئيسية بين <b>NFC</b> و<b>Infrared</b>.</li>
+    ` : `
+      <li><b>Gray-Screen Blink-Loop, Missing Face &amp; Silent Boot Fix (v1.1.1.3):</b> Fixed recursive <code>Board::GetInstance()</code> initialization crash inside <code>EmoteDisplay</code> constructor (via <code>UpdateBatteryToEmote</code>) that triggered an immediate C++ guard abort before eyes could render or audio could start, deferred <code>SetWifiConnected</code>/SNTP until <code>SetupUI()</code> &amp; Wi-Fi ready, and kept backlight off until ST7789 &amp; Emote assets initialize.</li>
+      <li><b>Web Serial Preparing Freeze &amp; Crash Fix (v1.1.1.3):</b> Removed the DOM MutationObserver feedback loop that froze/crashed the browser tab during "Preparing installation", added zero-404 SVG favicon, and added a 9s ESP32-S3 BOOT-mode helper prompt.</li>
+      <li><b>Mandatory 60-Country Local Time &amp; GMT Setup (No City):</b> Pick your country before flashing so Zhilly AI automatically syncs your local clock on Standby alongside the battery indicator.</li>
+      <li><b>Automatic Transition to SD Card Step:</b> When flashing finishes cleanly, the wizard automatically advances to Step 4 (SD Card Pack); if flashing fails, it stays on Step 3 and reports what went wrong.</li>
+      <li><b>Clean Memo Listening Animation, Original Fonts &amp; All 20 Emotions:</b> Restores the clean voice-wave listening animation with zero text behind it, original GitLab fonts everywhere (custom connected Arabic only for Arabic text), and all 20 animated eye emotions.</li>
+      <li><b>Zhilly Options UI &amp; Real 6-Digit Cloud PIN:</b> Rotate Encoder <b>Left</b> for Brightness, OS switching (Flipper Zero / Bruce), and Factory Reset, with live <code>xiaozhi.me</code> 6-digit PIN pairing.</li>
+      <li><b>Clean Flipper Zero Switch Menu:</b> Hardware firmware switching placed cleanly in the Main Menu between <b>NFC</b> and <b>Infrared</b>.</li>
+    `;
+  }
+  if(nb){
+    const lbl = lang==="ar" ? "ما الجديد في الإصدار v1.1.1.3" : "What's New in v1.1.1.3";
+    nb.setAttribute("aria-label", lbl);
+    nb.title = lbl;
+  }
+  renderOptions();renderFlash();renderBanner();drawStepper();setConn(connState);
+}
+
+(function settingsMenu(){
+  const KEY="mbFlasherSettings";
+  const DEFAULTS={graphics:"high",look:"milky",fps:60,lang:"en"};
+  const VALID={graphics:["high","medium","low"],look:["milky","atom"],fps:[30,55,60],lang:["ar","en"]};
+  const S=Object.assign({},DEFAULTS);
+  try{
+    const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
+    for(const k in DEFAULTS){
+      if(VALID[k].map(String).indexOf(String(saved[k]))!==-1)S[k]=typeof DEFAULTS[k]==="number"?Number(saved[k]):saved[k];
+    }
+  }catch(e){}
+  S.lang = "en"; // Strictly default to English per user directive
+  const btn=$("settingsButton"),panel=$("settingsPanel");
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+  save();
+  function paint(){
+    panel.querySelectorAll(".sp-seg").forEach(seg=>{
+      const key=seg.dataset.key;
+      seg.querySelectorAll("button").forEach(b=>{
+        const on=String(S[key])===b.dataset.val;
+        b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");
+      });
+    });
+  }
+  function setBodyClass(prefix,value){
+    const cl=document.body.classList;
+    [...cl].forEach(c=>{if(c.indexOf(prefix)===0)cl.remove(c);});
+    cl.add(prefix+value);
+  }
+  function apply(key){
+    if(key==="graphics"){setBodyClass("gfx-",S.graphics);GalaxyBG.setQuality(S.graphics);}
+    if(key==="look"){const target=S.look;Warp.run(target,()=>{setBodyClass("look-",target);GalaxyBG.setLook(target);});}
+    if(key==="fps")GalaxyBG.setFps(S.fps);
+    if(key==="lang")applyLang(S.lang);
+  }
+
+  setBodyClass("gfx-",S.graphics);setBodyClass("look-",S.look);
+  GalaxyBG.configure({quality:S.graphics,look:S.look,fps:S.fps});
+  renderOptions();renderFlash();
+  applyLang(S.lang);
+  paint();
+
+  const open=()=>{
+    const np=$("newsPanel"),nb=$("newsButton");
+    if(np&&!np.hidden){np.hidden=true;if(nb)nb.setAttribute("aria-expanded","false");}
+    panel.hidden=false;btn.setAttribute("aria-expanded","true");
+  };
+  const close=()=>{panel.hidden=true;btn.setAttribute("aria-expanded","false");};
+  btn.addEventListener("click",e=>{e.stopPropagation();panel.hidden?open():close();});
+  $("settingsClose").addEventListener("click",close);
+  document.addEventListener("click",e=>{if(!panel.hidden&&!panel.contains(e.target)&&e.target!==btn)close();});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
+  panel.addEventListener("click",e=>{
+    const b=e.target.closest(".sp-seg button");if(!b)return;
+    const key=b.closest(".sp-seg").dataset.key,raw=b.dataset.val;
+    S[key]=typeof DEFAULTS[key]==="number"?Number(raw):raw;
+    save();paint();apply(key);
+  });
+})();
+
+(function newsMenu(){
+  const SEEN_KEY="mbNewsSeen_v1.1.1.3";
+  const btn=$("newsButton"),panel=$("newsPanel"),badge=$("newsBadge"),closeBtn=$("newsClose");
+  if(!btn||!panel)return;
+  const syncBadge=()=>{
+    let seen=false;
+    try{seen=localStorage.getItem(SEEN_KEY)==="1";}catch(e){}
+    if(badge)badge.hidden=seen;
+  };
+  syncBadge();
+  const markSeen=()=>{
+    try{localStorage.setItem(SEEN_KEY,"1");}catch(e){}
+    if(badge)badge.hidden=true;
+  };
+  const open=()=>{
+    const sp=$("settingsPanel"),sb=$("settingsButton");
+    if(sp&&!sp.hidden){sp.hidden=true;if(sb)sb.setAttribute("aria-expanded","false");}
+    panel.hidden=false;btn.setAttribute("aria-expanded","true");
+    markSeen();
+  };
+  const close=()=>{panel.hidden=true;btn.setAttribute("aria-expanded","false");};
+  btn.addEventListener("click",e=>{e.stopPropagation();panel.hidden?open():close();});
+  if(closeBtn)closeBtn.addEventListener("click",close);
+  document.addEventListener("click",e=>{if(!panel.hidden&&!panel.contains(e.target)&&e.target!==btn)close();});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden)close();});
+})();
+
+console.log("%cMultiBoot for LilyGO T-Embed — Zhilly AI & Bruce","font-size:18px;font-weight:900;");
+</script>
+</body>
+</html>

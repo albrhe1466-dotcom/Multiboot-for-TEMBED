@@ -1,0 +1,40 @@
+{
+  "name": "LilyGO T-Embed MultiBoot (Bruce + Zhilly AI TR) v1.1.1.3",
+  "version": "1.1.1.3",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "bin/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "bin/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "bin/ota_data_initial.bin",
+          "offset": 65536
+        },
+        {
+          "path": "bin/bruce.bin",
+          "offset": 131072
+        },
+        {
+          "path": "bin/blank_4k.bin",
+          "offset": 5111808
+        },
+        {
+          "path": "bin/zhilly_tr.bin",
+          "offset": 10027008
+        },
+        {
+          "path": "bin/expression_assets.bin",
+          "offset": 13238272
+        }
+      ]
+    }
+  ]
+}

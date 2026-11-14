@@ -1,0 +1,19 @@
+App(
+    appid="firmware_switch",
+    name="Firmware Switcher",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="firmware_switch_app_main",
+    requires=[
+        "gui",
+        "storage",
+    ],
+    stack_size=2 * 1024,
+    order=20,
+    fap_category="Tools",
+    fap_description="3-in-1 Multi-Boot Switcher (Bruce & Zhilly AI)",
+    fap_author="Abdullah & Team Gemini",
+    fap_weburl="https://github.com/Sor3nt/Flipper-Zero-ESP32-Port",
+    fap_version="1.0",
+    fap_icon="icon.xbm",
+)
+
