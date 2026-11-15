@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#111318">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<title>MultiBoot for LilyGO T-Embed — Web Flasher v1.1.1.3</title>
+<title>MultiBoot for LilyGO T-Embed — Web Flasher v1.1.1.4</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -391,7 +391,7 @@ body.sel-flipbruce #zhillyLangPanel {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
         Discord
       </a>
-      <div class="version">v1.1.1.3</div>
+      <div class="version">v1.1.1.4</div>
     </div>
   </header>
 
@@ -404,7 +404,7 @@ body.sel-flipbruce #zhillyLangPanel {
     <div class="card hero">
       <div class="hero-logo">⚡</div>
       <h2 data-i="heroTitle">Welcome to MultiBoot for LilyGO T-Embed</h2>
-      <p class="hero-description" data-i="heroDesc">Official Web Serial flashing for LilyGO T-Embed CC1101 Plus. 3 Dual-Boot decisions: Bruce, Flipper, and Zhilly AI v1.1.1.3.</p>
+      <p class="hero-description" data-i="heroDesc">Official Web Serial flashing for LilyGO T-Embed CC1101 Plus. 3 Dual-Boot decisions: Bruce, Flipper, and Zhilly AI v1.1.1.4.</p>
       <div class="badges">
         <div class="badge" data-i="b1">🔌 4 Steps</div>
         <div class="badge">⚡ ESP Web Tools v10</div>
@@ -450,25 +450,25 @@ body.sel-flipbruce #zhillyLangPanel {
   <section class="page" id="pageFW">
     <div class="card">
       <div>
-        <h2 class="step-title" data-i="s2t">Step 2 · Firmware Decision (v1.1.1.3)</h2>
+        <h2 class="step-title" data-i="s2t">Step 2 · Firmware Decision (v1.1.1.4)</h2>
         <p class="step-sub" data-i="s2s">Choose one of the 3 dual-boot decisions below. Manifest switches automatically.</p>
       </div>
       <div id="options">
         <label class="opt sel" onclick="selectFW('flipbruce')">
           <input type="radio" name="fw" value="flipbruce" checked>
-          <b>1. Bruce with Flipper (Dual-Boot) v1.1.1.3</b><span class="tag">Default</span>
+          <b>1. Bruce with Flipper (Dual-Boot) v1.1.1.4</b><span class="tag">Default</span>
           <span class="d">1. Flipper Zero ESP32 Port (Primary Boot) + Bruce RF suite (Dual-Boot: Switch in Main Menu)</span>
           <em>6 partitions · manifest_flipper_bruce.json</em>
         </label>
         <label class="opt" onclick="selectFW('bruce_zhilly')">
           <input type="radio" name="fw" value="bruce_zhilly">
-          <b>2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.3</b>
+          <b>2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.4</b>
           <span class="d">2. Bruce RF suite + Zhilly Voice AI (Single chosen language: English, Arabic, or Turkish)</span>
           <em>7 partitions · manifest_dualboot_en.json</em>
         </label>
         <label class="opt" onclick="selectFW('flipper_zhilly')">
           <input type="radio" name="fw" value="flipper_zhilly">
-          <b>3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.3</b>
+          <b>3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.4</b>
           <span class="d">3. Flipper Zero ESP32 Port (Primary Boot) + Zhilly Voice AI (Single chosen language, switch between NFC &amp; IR)</span>
           <em>7 partitions · manifest_flipper_ai_en.json</em>
         </label>
@@ -491,7 +491,7 @@ body.sel-flipbruce #zhillyLangPanel {
       <!-- ZHILLY LANGUAGE & VOICE SELECTOR (Hidden for Option 1 flipbruce, visible for Options 2 & 3) -->
       <div class="zhilly-lang-panel" id="zhillyLangPanel" style="display: none; margin: 18px 0; padding: 16px; border: 1px solid rgba(157,231,255,0.3); border-radius: 16px; background: rgba(157,231,255,0.03);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-          <strong style="color: var(--cyan); font-size: 1.05em;">🗣️ Zhilly AI Voice &amp; Language (v1.1.1.3)</strong>
+          <strong style="color: var(--cyan); font-size: 1.05em;">🗣️ Zhilly AI Voice &amp; Language (v1.1.1.4)</strong>
           <span style="background: rgba(255,114,114,0.18); color: #ff7272; border: 1px solid rgba(255,114,114,0.35); padding: 3px 10px; border-radius: 12px; font-size: 0.82em; font-weight: bold;">🔒 Single-Language Firmware (Zero Chinese)</span>
         </div>
         <p style="color: var(--muted); margin: 0 0 12px 0; font-size: 0.88em;">Select ONE language to flash into Zhilly AI (including Wi-Fi Setup, UI, Voice &amp; Prompts):</p>
@@ -536,7 +536,7 @@ body.sel-flipbruce #zhillyLangPanel {
       </div>
 
       <div class="sel-banner">
-        <div><span data-i="selected">Selected:</span> <b id="selTitle">1. Bruce with Flipper (Dual-Boot) v1.1.1.3</b></div>
+        <div><span data-i="selected">Selected:</span> <b id="selTitle">1. Bruce with Flipper (Dual-Boot) v1.1.1.4</b></div>
         <div><span data-i="manifest">Manifest:</span> <b id="selManifest">manifest_flipper_bruce.json</b></div>
       </div>
       <div class="flashbox">
@@ -596,7 +596,7 @@ body.sel-flipbruce #zhillyLangPanel {
           <button class="btn primary" id="openMon" data-i="monOpen">Open Monitor</button>
         </div>
         <div class="tool" id="sdToolCard">
-          <h3 data-i="sdT">💾 MultiBoot SD Card Pack (v1.1.1.3)</h3>
+          <h3 data-i="sdT">💾 MultiBoot SD Card Pack (v1.1.1.4)</h3>
           <div id="sdAutoBanner" style="display:none; margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(123,227,176,0.14); border: 1px solid rgba(123,227,176,0.45); color: var(--ok); font-size: 0.88em;"></div>
           <p data-i="sdD">Generates customized SD Card Pack for your selected firmware with real unzipped Flipper databases (only for Flipper combos) and hardware configurations.</p>
           <div id="sdCountryWrap" style="display:none; margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(157,231,255,0.28); font-size: 0.86em;">
@@ -615,7 +615,7 @@ body.sel-flipbruce #zhillyLangPanel {
     </div>
   </section>
 
-  <footer class="footer">MultiBoot for LilyGO T-Embed • LilyGO T-Embed CC1101 Plus • v1.1.1.3</footer>
+  <footer class="footer">MultiBoot for LilyGO T-Embed • LilyGO T-Embed CC1101 Plus • v1.1.1.4</footer>
 </div>
 </main>
 
@@ -635,16 +635,14 @@ body.sel-flipbruce #zhillyLangPanel {
 
 <!-- SETTINGS & NEWS -->
 <button id="settingsButton" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel">⚙️</button>
-<button id="newsButton" type="button" aria-label="What's New in v1.1.1.3" aria-expanded="false" aria-controls="newsPanel" title="What's New in v1.1.1.3">📰<span id="newsBadge" class="news-badge" aria-label="Unread update">!</span></button>
-<div id="newsPanel" role="dialog" aria-label="What's New in v1.1.1.3" hidden>
-  <div class="sp-head"><strong data-i="newsT">📰 What's New in v1.1.1.3</strong><button type="button" class="sp-x" id="newsClose" aria-label="Close">✕</button></div>
-  <div class="news-ver">Version 1.1.1.3 • Release Notes</div>
+<button id="newsButton" type="button" aria-label="What's New in v1.1.1.4" aria-expanded="false" aria-controls="newsPanel" title="What's New in v1.1.1.4">📰<span id="newsBadge" class="news-badge" aria-label="Unread update">!</span></button>
+<div id="newsPanel" role="dialog" aria-label="What's New in v1.1.1.4" hidden>
+  <div class="sp-head"><strong data-i="newsT">📰 What's New in v1.1.1.4</strong><button type="button" class="sp-x" id="newsClose" aria-label="Close">✕</button></div>
+  <div class="news-ver">Version 1.1.1.4 • Release Notes</div>
   <ul class="news-list" id="newsList">
-    <li><b>Real Connected Arabic Script &amp; Turkish Glyphs on Screen:</b> Embedded a 717-glyph multi-language font with full Arabic contextual letter shaping &amp; right-to-left rendering (<code>جاري الاتصال بـ Wi-Fi...</code>, <code>زيللي: جاهز</code>, <code>الاستماع...</code> — no English/Franco transliteration!).</li>
-    <li><b>Zhilly Options UI Crash &amp; Freeze Fix:</b> Unified LCD DMA rendering inside the emote engine so rotating the encoder <b>Left</b> to open <b>Zhilly Options</b> (Brightness, Switch to Flipper Zero / Bruce, Factory Reset) and pressing the <b>Side Button</b> to return works repeatedly with zero freezes or crashes.</li>
-    <li><b>Continuous Autonomous Eye Blinking:</b> Zhilly's oval eyes now blink continuously and naturally on their own without needing any button press, and never split apart or morph into unwanted animations.</li>
-    <li><b>Zero Voice Parrot / Echo Loop:</b> Hard-disabled audio loopback diagnostics and locked single-language AI prompts for fluent <b>Turkish</b>, <b>Arabic</b>, and <b>English</b> at 100% default speaker volume.</li>
-    <li><b>Clean Flipper Zero Left-Screen:</b> Removed the Left-key quick switch popup on the Flipper desktop so switching lives cleanly in the Main Menu (between <b>NFC</b> and <b>Infrared</b>), matching Bruce.</li>
+    <li><b>Bruce SD Card Bootloop &amp; Display Fix:</b> Resolved the SD-card bootloop with half-red flicker and low-brightness purple screen by removing the ST7789 debug red GRAM fill, resolving the GPIO 40 LCD reset vs. speaker <code>WCLK</code> pin conflict, stabilizing the shared TFT/SD/CC1101 SPI bus at 40 MHz with an 80-clock SD wake sequence, closing leaked config/theme file handles, and adding automatic RTC Safe Boot recovery if SD configs corrupt.</li>
+    <li><b>Aligned SD Card Defaults:</b> Updated generated <code>bruce.conf</code> defaults (<code>colorInverted: 1</code>, <code>rfModule: 1</code>, clean theme/startup keys) to match LilyGO T-Embed CC1101 Plus hardware.</li>
+    <li><b>Included from v1.1.1.3:</b> Full Zhilly AI connected Arabic &amp; Turkish fonts, flicker-free Options menu, autonomous eye blinking, zero echo loop, and clean Flipper Zero Main Menu switching.</li>
   </ul>
 </div>
 <div id="settingsPanel" role="dialog" aria-label="Settings" hidden>
@@ -1068,15 +1066,15 @@ const EN = {
   heroNote:"Connect the device with a USB-C cable before you start, and use Chrome or Edge.",start:"🚀 Start flashing",
   s1t:"Step 1 · Target Hardware",s1s:"Only one board is supported, and it is already selected and locked.",locked:"🔒 Locked",
   back:"← Back",nextFW:"Next: Choose firmware →",
-  s2t:"Step 2 · Firmware Decision (v1.1.1.3)",s2s:"Choose one of the 3 dual-boot decisions below. Manifest switches automatically.",nextFlash:"Next: Flash →",
+  s2t:"Step 2 · Firmware Decision (v1.1.1.4)",s2s:"Choose one of the 3 dual-boot decisions below. Manifest switches automatically.",nextFlash:"Next: Flash →",
   s3t:"Step 3 · Flash the Device",s3s:"Plug the board in over USB-C, then press the button.",selected:"Selected:",manifest:"Manifest:",
   flashBtn:"Connect & Flash Device",unsup:"⚠️ Web Serial is unsupported in this browser. Please open in Google Chrome or Microsoft Edge.",
   tblTitle:"Memory Offset Table",thHex:"Flash Offset (Hex)",thDec:"Decimal",thFile:"Binary File",thDesc:"Description",nextTools:"Next: Tools →",flashAutoNote:"⏳ Advances automatically to Step 4 (SD Card) when flashing finishes.",
   s4t:"Step 4 · Companion Tools & Diagnostics",s4s:"Watch the boot log and prepare the SD card.",
   monT:"📟 Live Serial Monitor",monD:"View real-time ESP-IDF boot logs, Wi-Fi status and AI events at 115200 baud.",monOpen:"Open Monitor",
-  sdT:"💾 MultiBoot SD Card Pack (v1.1.1.3)",sdD:"Generates customized SD Card Pack with real unzipped Flipper databases (for Flipper combos only) and configs.",sdBtn:"Generate & Download",again:"↺ Start over",
+  sdT:"💾 MultiBoot SD Card Pack (v1.1.1.4)",sdD:"Generates customized SD Card Pack with real unzipped Flipper databases (for Flipper combos only) and configs.",sdBtn:"Generate & Download",again:"↺ Start over",
   monT2:"📟 Serial Monitor",mConn:"Connect",mDisc:"Disconnect",mClear:"Clear Log",mClose:"Close",
-  setT:"⚙️ Settings",newsT:"📰 What's New in v1.1.1.3",gfx:"Graphics",high:"High",med:"Medium",low:"Low",look:"Look",milky:"🌌 Milky Way",atom:"⚛️ Atom",fps:"Frames (FPS)",lang:"Language",
+  setT:"⚙️ Settings",newsT:"📰 What's New in v1.1.1.4",gfx:"Graphics",high:"High",med:"Medium",low:"Low",look:"Look",milky:"🌌 Milky Way",atom:"⚛️ Atom",fps:"Frames (FPS)",lang:"Language",
   uiop:"UI opacity",uiNote:"0% = text only • 100% = solid",gfxNote:"High = best looking • Medium = lighter • Low = for weak devices",
   bgNote:"These settings only affect the background, not the buttons or the interface.",
   /* dynamic */
@@ -1104,15 +1102,15 @@ const AR = {
   heroNote:"وصّل الجهاز بكابل USB-C قبل البدء، واستخدم متصفح Chrome أو Edge.",start:"🚀 ابدأ الفلاش",
   s1t:"الخطوة 1 · الجهاز",s1s:"يوجد جهاز واحد مدعوم، وهو محدد ومقفل مسبقاً.",locked:"🔒 مقفل",
   back:"رجوع →",nextFW:"التالي: الفيرموير ←",
-  s2t:"الخطوة 2 · اختيار الفيرموير (v1.1.1.3)",s2s:"اختر واحداً من قرارات الإقلاع المزدوج الثلاثة فقط.",nextFlash:"التالي: الفلاش ←",
+  s2t:"الخطوة 2 · اختيار الفيرموير (v1.1.1.4)",s2s:"اختر واحداً من قرارات الإقلاع المزدوج الثلاثة فقط.",nextFlash:"التالي: الفلاش ←",
   s3t:"الخطوة 3 · فلاش الجهاز",s3s:"وصّل اللوحة بكابل USB-C ثم اضغط الزر.",selected:"المحدد:",manifest:"ملف التعريف:",
   flashBtn:"اتصال وفلاش الجهاز",unsup:"⚠️ المتصفح لا يدعم Web Serial. افتح الصفحة في Google Chrome أو Microsoft Edge.",
   tblTitle:"جدول عناوين الذاكرة",thHex:"العنوان (Hex)",thDec:"عشري",thFile:"ملف البايناري",thDesc:"الوصف",nextTools:"التالي: الأدوات ←",flashAutoNote:"⏳ ينتقل تلقائياً إلى الخطوة الأخيرة (بطاقة SD) فور انتهاء الفلاش.",
   s4t:"الخطوة 4 · الأدوات والتشخيص",s4s:"راقب سجل الإقلاع وجهّز بطاقة SD.",
   monT:"📟 شاشة السيريال المباشرة",monD:"اعرض سجلات إقلاع ESP-IDF وحالة Wi-Fi وأحداث الذكاء الاصطناعي لحظياً بسرعة 115200.",monOpen:"فتح الشاشة",
-  sdT:"💾 حزمة بطاقة SD (v1.1.1.3)",sdD:"تنزيل حزمة بطاقة SD المخصصة مع ملفات Flipper المفكوكة (لخيارات Flipper فقط) وإعدادات الجهاز.",sdBtn:"توليد وتنزيل",again:"↺ البدء من جديد",
+  sdT:"💾 حزمة بطاقة SD (v1.1.1.4)",sdD:"تنزيل حزمة بطاقة SD المخصصة مع ملفات Flipper المفكوكة (لخيارات Flipper فقط) وإعدادات الجهاز.",sdBtn:"توليد وتنزيل",again:"↺ البدء من جديد",
   monT2:"📟 شاشة السيريال",mConn:"اتصال",mDisc:"قطع الاتصال",mClear:"مسح السجل",mClose:"إغلاق",
-  setT:"⚙️ الإعدادات",newsT:"📰 الجديد في الإصدار v1.1.1.3",gfx:"الرسومات",high:"عالية",med:"متوسطة",low:"منخفضة",look:"الشكل",milky:"🌌 درب التبانة",atom:"⚛️ الذرة",fps:"الإطارات (FPS)",lang:"اللغة",
+  setT:"⚙️ الإعدادات",newsT:"📰 الجديد في الإصدار v1.1.1.4",gfx:"الرسومات",high:"عالية",med:"متوسطة",low:"منخفضة",look:"الشكل",milky:"🌌 درب التبانة",atom:"⚛️ الذرة",fps:"الإطارات (FPS)",lang:"اللغة",
   uiop:"كثافة الواجهة",uiNote:"0% = نص فقط • 100% = صلب",gfxNote:"عالية = أجمل شكل • متوسطة = أخف • منخفضة = للأجهزة الضعيفة",
   bgNote:"تؤثر هذه الإعدادات على الخلفية فقط، وليس على الأزرار أو الواجهة.",
   connected:"· متصل @ 115200",disconnected:"· غير متصل",
@@ -1136,7 +1134,7 @@ let lang="en";
 const t = k => (lang==="en"?EN:AR)[k] || k;
 
 /* =========================================================
-   FLASHER DATA, 60-COUNTRY TIMEZONE & 3 DUAL-BOOT DECISIONS (v1.1.1.3)
+   FLASHER DATA, 60-COUNTRY TIMEZONE & 3 DUAL-BOOT DECISIONS (v1.1.1.4)
 ========================================================= */
 let activeZhillyLang = "en-US";
 const zhillyLangSuffix = () => activeZhillyLang==="ar-SA" ? "ar" : (activeZhillyLang==="tr-TR" ? "tr" : "en");
@@ -1310,9 +1308,9 @@ const BLANK2=["0x990000",10027008,"bin/blank_4k.bin","d_blank"];
 const ZH2=()=>["0x990000",10027008,"bin/zhilly_"+zhillyLangSuffix()+".bin","d_zhilly2"];
 const ASSETS=["0xCA0000",13238272,"bin/expression_assets.bin","d_assets"];
 const FW=[
-  {id:"flipbruce",title:"1. Bruce with Flipper (Dual-Boot) v1.1.1.3",desc:"f_bf",manifest:"manifest_flipper_bruce.json",rec:true,rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),OTA1("bruce.bin","d_bruce1"),BLANK2]},
-  {id:"bruce_zhilly",title:"2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.3",desc:"f_bz",manifest:"manifest_dualboot.json",rows:()=>[...BOOT,APP("bruce.bin","d_bruce"),BLANK1,ZH2(),ASSETS]},
-  {id:"flipper_zhilly",title:"3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.3",desc:"f_fz",manifest:"manifest_flipper_ai.json",rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),BLANK1,ZH2(),ASSETS]}
+  {id:"flipbruce",title:"1. Bruce with Flipper (Dual-Boot) v1.1.1.4",desc:"f_bf",manifest:"manifest_flipper_bruce.json",rec:true,rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),OTA1("bruce.bin","d_bruce1"),BLANK2]},
+  {id:"bruce_zhilly",title:"2. Bruce with Zhilly AI (Dual-Boot) v1.1.1.4",desc:"f_bz",manifest:"manifest_dualboot.json",rows:()=>[...BOOT,APP("bruce.bin","d_bruce"),BLANK1,ZH2(),ASSETS]},
+  {id:"flipper_zhilly",title:"3. Flipper Zero with Zhilly AI (Dual-Boot) v1.1.1.4",desc:"f_fz",manifest:"manifest_flipper_ai.json",rows:()=>[...BOOT,APP("flipper.bin","d_flip0"),BLANK1,ZH2(),ASSETS]}
 ];
 let current=FW[0];
 
@@ -1339,19 +1337,19 @@ function makeManifestObj(name, ota0Bin, hasBruceOta1, zhLangSfx){
     parts.push({ "path": "bin/zhilly_" + zhLangSfx + ".bin", "offset": 10027008 });
     parts.push({ "path": "bin/expression_assets.bin", "offset": 13238272 });
   }
-  return { "name": name, "version": "1.1.1.3", "new_install_prompt_erase": false, "builds": [{ "chipFamily": "ESP32-S3", "parts": parts }] };
+  return { "name": name, "version": "1.1.1.4", "new_install_prompt_erase": false, "builds": [{ "chipFamily": "ESP32-S3", "parts": parts }] };
 }
 
 const MANIFESTS_DATA = {
-  "manifest_flipper_bruce.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Bruce) v1.1.1.3", "flipper.bin", true, null),
-  "manifest_dualboot.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.3", "bruce.bin", false, "en"),
-  "manifest_dualboot_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.3", "bruce.bin", false, "en"),
-  "manifest_dualboot_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI AR) v1.1.1.3", "bruce.bin", false, "ar"),
-  "manifest_dualboot_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI TR) v1.1.1.3", "bruce.bin", false, "tr"),
-  "manifest_flipper_ai.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.3", "flipper.bin", false, "en"),
-  "manifest_flipper_ai_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.3", "flipper.bin", false, "en"),
-  "manifest_flipper_ai_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI AR) v1.1.1.3", "flipper.bin", false, "ar"),
-  "manifest_flipper_ai_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI TR) v1.1.1.3", "flipper.bin", false, "tr")
+  "manifest_flipper_bruce.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Bruce) v1.1.1.4", "flipper.bin", true, null),
+  "manifest_dualboot.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.4", "bruce.bin", false, "en"),
+  "manifest_dualboot_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI EN) v1.1.1.4", "bruce.bin", false, "en"),
+  "manifest_dualboot_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI AR) v1.1.1.4", "bruce.bin", false, "ar"),
+  "manifest_dualboot_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Bruce + Zhilly AI TR) v1.1.1.4", "bruce.bin", false, "tr"),
+  "manifest_flipper_ai.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.4", "flipper.bin", false, "en"),
+  "manifest_flipper_ai_en.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI EN) v1.1.1.4", "flipper.bin", false, "en"),
+  "manifest_flipper_ai_ar.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI AR) v1.1.1.4", "flipper.bin", false, "ar"),
+  "manifest_flipper_ai_tr.json": makeManifestObj("LilyGO T-Embed MultiBoot (Flipper Zero + Zhilly AI TR) v1.1.1.4", "flipper.bin", false, "tr")
 };
 window.MANIFESTS_DATA = MANIFESTS_DATA;
 
@@ -1921,11 +1919,14 @@ $("makeZip").onclick=async function(){
     ledBright:20,
     ledColor:"A81F",
     ledEffect:0,
-    colorInverted:0,
-    theme:0,
+    colorInverted:1,
+    themeFile:"",
+    themeOnSd:0,
+    wifiAtStartup:0,
+    startupApp:"",
     soundEnabled:1,
     soundVolume:70,
-    rfModule:0,
+    rfModule:1,
     rfFreq:433.92
   };
   const bruceTxt=JSON.stringify(bruceConfig,null,2);
@@ -2286,7 +2287,7 @@ function applyLang(next){
 })();
 
 (function newsMenu(){
-  const SEEN_KEY="mbNewsSeen_v1.1.1.3";
+  const SEEN_KEY="mbNewsSeen_v1.1.1.4";
   const btn=$("newsButton"),panel=$("newsPanel"),badge=$("newsBadge"),closeBtn=$("newsClose");
   if(!btn||!panel)return;
   const syncBadge=()=>{
